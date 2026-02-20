@@ -171,8 +171,8 @@ body { flex-direction: column; }
 <li>🎯 <strong>Перетащите маркер</strong> — данные обновятся автоматически</li>
 <li>🖱️ <strong>Клик по карте</strong> — мгновенный переход к точке</li>
 <li>📊 <strong>Факторы риска</strong> — шум, плотность людей, освещенность</li>
-<li>🌤️ <strong>Погода</strong> — Open-Meteo API (реальные данные)</li>
-<li>🚦 <strong>Пробки</strong> — TomTom Traffic API (реальные данные)</li>
+<li>🌤️ <strong>Погода</strong> — реальные данные</li>
+<li>🚦 <strong>Пробки</strong> — реальные данные</li>
 </ul>
 </div>
 </div>
@@ -276,29 +276,25 @@ body { flex-direction: column; }
 <p style="font-size:10px;margin-top:5px;color:var(--text-muted)">Хакатон «Умный город» — Анализ факторов риска</p>
 </footer>
 </div>
-<!-- ✅ НОВЫЙ API-КЛЮЧ YANDEX -->
 <script src="https://api-maps.yandex.ru/2.1/?apikey=c2763cd1-5a14-4131-842c-2bbd60932c52&lang=ru_RU" type="text/javascript"></script>
 <script>
-// ==================== КОНФИГУРАЦИЯ ====================
 const CONFIG = {
 throttleMs: 600,
 minDragDistance: 0.001,
 apiBase: 'http://127.0.0.1:5000/api',
 defaultCoords: [55.7961, 49.1064],
-debugMode: true,
+debugMode: false,
 overpassUrl: 'https://overpass-api.de/api/interpreter',
 openMeteoUrl: 'https://api.open-meteo.com/v1/forecast',
 sunriseUrl: 'https://api.sunrise-sunset.org/json',
 overpassTimeout: 25,
 cacheDuration: 300000,
-// ✅ НОВЫЙ API-КЛЮЧ MEERSENS
 meersensApiKey: '0N2Odysx0NER8r240yxEY5DvbdC900HU',
 meersensBaseUrl: 'https://api.meersens.com/environment/public/noise/current',
-// ✅ НОВЫЙ API-КЛЮЧ TOMTOM
 tomTomApiKey: 'yq5C1dZiEviylLPM4Z2ZSh9wzuACsoQZ',
 tomTomBaseUrl: 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/11/json'
 };
-// ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
+
 let map, placemark;
 let currentCoords = [...CONFIG.defaultCoords];
 let lastRequestTime = 0;
@@ -310,7 +306,7 @@ let activePointId = null;
 let requestCounter = 0;
 let mapInitialized = false;
 let apiCache = new Map();
-// ==================== УТИЛИТЫ ====================
+
 function throttle(func, limitMs, label = '') {
 return function(...args) {
 const now = Date.now();
@@ -318,7 +314,6 @@ const coords = args[0];
 if (lastRequestCoords) {
 const dist = Math.hypot(coords[0] - lastRequestCoords[0], coords[1] - lastRequestCoords[1]);
 if (dist < CONFIG.minDragDistance && now - lastRequestTime < limitMs * 2) {
-logDebug(`⏭️ ${label}: малое смещение`);
 return;
 }
 }
@@ -337,30 +332,26 @@ pendingRequest = null;
 }
 };
 }
+
 function formatCoord(val) { return val.toFixed(4); }
 function getTrafficClass(level) {
 if (level > 7) return 'traffic-high';
 if (level > 4) return 'traffic-medium';
 return 'traffic-low';
 }
-function logDebug(msg) {
-if (!CONFIG.debugMode) return;
-console.log(`[UrbanBlind] ${msg}`);
-}
-// КЭШИРОВАНИЕ API ЗАПРОСОВ
+
 function getCachedData(key) {
 const cached = apiCache.get(key);
 if (cached && Date.now() - cached.time < CONFIG.cacheDuration) {
-logDebug(`📦 Кэш: ${key}`);
 return cached.data;
 }
 return null;
 }
+
 function setCachedData(key, data) {
 apiCache.set(key, { data, time: Date.now() });
-logDebug(`💾 Кэш сохранён: ${key}`);
 }
-// 🔊 MEERSENS API - ПОЛУЧЕНИЕ УРОВНЯ ШУМА
+
 async function getNoiseFromMeersens(lat, lon) {
 const cacheKey = `meersens:${lat.toFixed(4)},${lon.toFixed(4)}`;
 const cached = getCachedData(cacheKey);
@@ -369,7 +360,6 @@ cached.source = 'meersens-cached';
 return cached;
 }
 try {
-logDebug(`🌍 Запрос к Meersens API: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
 const url = `${CONFIG.meersensBaseUrl}?lat=${lat}&lng=${lon}`;
 const controller = new AbortController();
 const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -394,16 +384,15 @@ source: 'meersens',
 data: data
 };
 setCachedData(cacheKey, result);
-logDebug(`✅ Meersens: ${noiseLevel} дБ, риск ${result.risk}%`);
 return result;
 } else {
 throw new Error('No noise data in response');
 }
 } catch (error) {
-logDebug(`⚠️ Meersens API ошибка: ${error.message}`);
 throw error;
 }
 }
+
 function getNoiseDescription(db) {
 if (db < 45) return 'Тихо: спокойная зона, низкий риск для слуха';
 if (db < 55) return 'Умеренный шум: жилая зона, комфортно';
@@ -411,7 +400,7 @@ if (db < 65) return 'Заметный шум: оживлённая улица, �
 if (db < 75) return 'Шумно: транспортная магистраль, риск при длительном воздействии';
 return 'Очень шумно: зона высокого риска, рекомендуется защита слуха';
 }
-// OVERPASS API - ЗАПРОСЫ К OPENSTREETMAP
+
 async function queryOverpass(query) {
 const cacheKey = `overpass:${query.substring(0, 100)}`;
 const cached = getCachedData(cacheKey);
@@ -431,17 +420,15 @@ const data = await response.json();
 setCachedData(cacheKey, data);
 return data;
 } catch (error) {
-logDebug(`⚠️ Overpass ошибка: ${error.message}`);
 throw error;
 }
 }
-// УРОВЕНЬ ШУМА (с приоритетом Meersens, fallback на OSM)
+
 async function getNoiseFromOSM(lat, lon) {
 try {
 const meersensData = await getNoiseFromMeersens(lat, lon);
 return meersensData;
 } catch (e) {
-logDebug('⚠️ Meersens недоступен, используем OSM fallback');
 }
 const query = `
 [out:json][timeout:${CONFIG.overpassTimeout}];
@@ -458,25 +445,24 @@ out count;
 try {
 const data = await queryOverpass(query);
 const count = data.elements?.length || 0;
-logDebug(`🔊 Шум OSM: ${count} объектов`);
 let level, risk, desc;
-if (count > 50) { level = 85; risk = 75; desc = 'Очень шумно: много дорог и заведений (OSM)'; }
-else if (count > 25) { level = 65; risk = 55; desc = 'Умеренный шум: средняя активность (OSM)'; }
-else if (count > 10) { level = 45; risk = 35; desc = 'Тихо: мало источников шума (OSM)'; }
-else { level = 25; risk = 20; desc = 'Очень тихо: спокойная зона (OSM)'; }
+if (count > 50) { level = 85; risk = 75; desc = 'Очень шумно: много дорог и заведений'; }
+else if (count > 25) { level = 65; risk = 55; desc = 'Умеренный шум: средняя активность'; }
+else if (count > 10) { level = 45; risk = 35; desc = 'Тихо: мало источников шума'; }
+else { level = 25; risk = 20; desc = 'Очень тихо: спокойная зона'; }
 return { level, risk, desc, source: 'osm' };
 } catch (e) {
-logDebug('⚠️ Шум: fallback на геолокацию');
 return getNoiseFallback(lat, lon);
 }
 }
+
 function getNoiseFallback(lat, lon) {
 const centerDist = Math.hypot(lat - 55.7961, lon - 49.1064);
-if (centerDist < 0.02) return { level: 75, risk: 65, desc: 'Центр: высокий уровень шума (оценка)', source: 'fallback' };
-if (centerDist < 0.05) return { level: 60, risk: 45, desc: 'Спальный район: умеренный шум (оценка)', source: 'fallback' };
-return { level: 45, risk: 30, desc: 'Окраина: низкий уровень шума (оценка)', source: 'fallback' };
+if (centerDist < 0.02) return { level: 75, risk: 65, desc: 'Центр: высокий уровень шума', source: 'fallback' };
+if (centerDist < 0.05) return { level: 60, risk: 45, desc: 'Спальный район: умеренный шум', source: 'fallback' };
+return { level: 45, risk: 30, desc: 'Окраина: низкий уровень шума', source: 'fallback' };
 }
-// ПЛОТНОСТЬ ЛЮДЕЙ
+
 async function getCrowdFromOSM(lat, lon) {
 const query = `
 [out:json][timeout:${CONFIG.overpassTimeout}];
@@ -497,7 +483,6 @@ out count;
 try {
 const data = await queryOverpass(query);
 const count = data.elements?.length || 0;
-logDebug(`👥 Плотность: ${count} объектов`);
 let level, risk, desc;
 if (count > 40) { level = 85; risk = 65; desc = 'Высокая плотность: торговая зона'; }
 else if (count > 20) { level = 60; risk = 45; desc = 'Средняя плотность: смешанная застройка'; }
@@ -505,10 +490,10 @@ else if (count > 5) { level = 35; risk = 25; desc = 'Низкая плотнос
 else { level = 15; risk = 15; desc = 'Очень низкая плотность: тихая зона'; }
 return { level, risk, desc };
 } catch (e) {
-logDebug('⚠️ Плотность: fallback');
 return getCrowdFallback(lat, lon);
 }
 }
+
 function getCrowdFallback(lat, lon) {
 const hour = new Date().getHours();
 const centerDist = Math.hypot(lat - 55.7961, lon - 49.1064);
@@ -516,7 +501,7 @@ if (centerDist < 0.02 && hour >= 10 && hour < 22) return { level: 80, risk: 55, 
 if (centerDist < 0.05) return { level: 50, risk: 35, desc: 'Средняя плотность: жилые районы' };
 return { level: 25, risk: 20, desc: 'Низкая плотность: тихие зоны' };
 }
-// ОСВЕЩЁННОСТЬ
+
 async function getLightFromOSM(lat, lon) {
 const now = new Date();
 const timeInfo = await getTimeOfDayByLocation(lat, lon);
@@ -536,29 +521,27 @@ out count;
 try {
 const data = await queryOverpass(query);
 const count = data.elements?.length || 0;
-logDebug(`💡 Свет: ${count} фонарей`);
 let level, risk, desc;
 if (count > 15) { level = 75; risk = 25; desc = 'Хорошее уличное освещение'; }
 else if (count > 5) { level = 50; risk = 45; desc = 'Среднее освещение'; }
 else { level = 25; risk = 70; desc = 'Слабое освещение'; }
 return { level, risk, desc };
 } catch (e) {
-logDebug('⚠️ Свет: fallback');
 return getLightFallback(lat, lon);
 }
 }
+
 function getLightFallback(lat, lon) {
 const hour = new Date().getHours();
-if (hour >= 7 && hour < 21) return { level: 95, risk: 10, desc: 'День (оценка)' };
-return { level: 25, risk: 70, desc: 'Ночь (оценка)' };
+if (hour >= 7 && hour < 21) return { level: 95, risk: 10, desc: 'День' };
+return { level: 25, risk: 70, desc: 'Ночь' };
 }
-// ВОСХОД/ЗАКАТ
+
 async function getSunriseSunset(lat, lon) {
 const cacheKey = `sunrise:${lat.toFixed(4)},${lon.toFixed(4)}`;
 const cached = getCachedData(cacheKey);
 if (cached) return cached;
 try {
-logDebug(`🌅 Запрос восхода/заката для координат: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
 const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=today&formatted=0`;
 const controller = new AbortController();
 const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -577,10 +560,10 @@ civil_twilight_end: new Date(data.results.civil_twilight_end)
 setCachedData(cacheKey, result);
 return result;
 } catch (error) {
-logDebug(`⚠️ Ошибка Sunrise API: ${error.message}`);
 return null;
 }
 }
+
 async function getTimeOfDayByLocation(lat, lon) {
 const now = new Date();
 const sunData = await getSunriseSunset(lat, lon);
@@ -589,7 +572,7 @@ const hour = now.getHours();
 return {
 timeOfDay: hour >= 6 && hour < 12 ? 'Утро' : hour >= 12 && hour < 18 ? 'День' : hour >= 18 && hour < 23 ? 'Вечер' : 'Ночь',
 isDaytime: hour >= 6 && hour < 22,
-description: 'API недоступен, используется локальное время'
+description: 'Локальное время'
 };
 }
 const isDaytime = now >= sunData.sunrise && now < sunData.sunset;
@@ -602,17 +585,13 @@ else { timeOfDay = 'Ночь'; description = 'Темно, ограниченна
 return { timeOfDay, isDaytime, description };
 }
 
-// 🌤️ ПОГОДА (Open-Meteo API - ИСПРАВЛЕННАЯ ВЕРСИЯ)
 async function getWeatherFromOpenMeteo(lat, lon) {
 const cacheKey = `weather:${lat.toFixed(2)},${lon.toFixed(2)}`;
 const cached = getCachedData(cacheKey);
 if (cached) {
-logDebug(`📦 Погода из кэша: ${cached.temp}°C`);
 return cached;
 }
 try {
-logDebug(`🌤️ Запрос погоды Open-Meteo: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-// ✅ ИСПРАВЛЕННЫЙ URL с правильными параметрами
 const url = `${CONFIG.openMeteoUrl}?` +
 `latitude=${lat}&` +
 `longitude=${lon}&` +
@@ -632,29 +611,20 @@ clearTimeout(timeoutId);
 
 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 const data = await response.json();
-logDebug(`📊 Open-Meteo ответ:`, data);
 
 if (!data.current_weather) throw new Error('Нет данных о текущей погоде');
 
-// ✅ НАДЕЖНОЕ ПОЛУЧЕНИЕ ВЛАЖНОСТИ
 let humidity = 0;
 if (data.hourly && data.hourly.time && data.hourly.relative_humidity_2m) {
 const now = new Date();
-// Форматируем текущее время в строку ISO (YYYY-MM-DDTHH) для сравнения
 const currentHourStr = now.toISOString().slice(0, 13); 
-
-// Ищем индекс, где время совпадает с текущим часом
 const index = data.hourly.time.findIndex(t => t.startsWith(currentHourStr));
 
 if (index !== -1 && data.hourly.relative_humidity_2m[index] !== undefined) {
 humidity = data.hourly.relative_humidity_2m[index];
 } else {
-// Если точного совпадения нет (редко), берем первое доступное значение как запасной вариант
 humidity = data.hourly.relative_humidity_2m[0] || 0;
-logDebug(`⚠️ Точное время не найдено, использовано запасное значение влажности.`);
 }
-} else {
-logDebug(`⚠️ В ответе API нет данных hourly.relative_humidity_2m`);
 }
 
 const weather = {
@@ -666,10 +636,8 @@ condition: getWeatherCondition(data.current_weather.weathercode),
 weatherCode: data.current_weather.weathercode
 };
 setCachedData(cacheKey, weather);
-logDebug(`✅ Погода: ${weather.temp}°C, Влажность: ${weather.humidity}%`);
 return weather;
 } catch (error) {
-logDebug(`⚠️ Open-Meteo ошибка: ${error.message}`);
 return {
 temp: 0, wind: '—', windDirection: '—', humidity: 0,
 condition: 'Недоступно', weatherCode: null, error: error.message
@@ -697,14 +665,11 @@ const conditions = {
 return conditions[code] || '❓ Неизвестно';
 }
 
-// 🚦 ПРОБКИ (TomTom Traffic API - ИСПРАВЛЕННАЯ ВЕРСИЯ)
 async function getTrafficFromTomTom(lat, lon) {
 const cacheKey = `tomtom:${lat.toFixed(4)},${lon.toFixed(4)}`;
 const cached = getCachedData(cacheKey);
 if (cached) return cached;
 try {
-logDebug(`🚦 Запрос пробок к TomTom для координат: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
-// ✅ ИСПРАВЛЕННЫЙ URL с правильным форматом
 const url = `${CONFIG.tomTomBaseUrl}/${CONFIG.tomTomApiKey}?point=${lat},${lon}`;
 const controller = new AbortController();
 const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -748,14 +713,13 @@ current_speed: currentSpeed,
 free_flow_speed: freeFlowSpeed,
 road_closure: roadClosure
 };
-logDebug(`🚦 Данные о пробках получены: уровень ${trafficLevel}/10, скорость ${speedAvg}`);
 setCachedData(cacheKey, trafficData);
 return trafficData;
 } catch (error) {
-logDebug(`⚠️ Ошибка TomTom API: ${error.message}`);
 return getTrafficFallback(lat, lon);
 }
 }
+
 function getTrafficFallback(lat, lon) {
 const hour = new Date().getHours();
 const day = new Date().getDay();
@@ -777,7 +741,7 @@ else if (trafficLevel > 4) { status = 'Умеренная загруженнос
 else { status = 'Низкая загруженность'; speedAvg = '30-40 км/ч'; }
 return { level: trafficLevel, status: status, speed_avg: speedAvg };
 }
-// РАСЧЁТ ФАКТОРОВ РИСКА
+
 async function calculateRiskFactors(coords, serverData = null) {
 const [lat, lon] = coords;
 const now = new Date();
@@ -826,16 +790,19 @@ traffic, weather, safetyIndex,
 timestamp: new Date().toLocaleString('ru')
 };
 }
+
 function getRiskClass(risk) {
 if (risk < 40) return 'risk-low';
 if (risk < 70) return 'risk-medium';
 return 'risk-high';
 }
+
 function getSafetyColor(index) {
 if (index >= 70) return '#27ae60';
 if (index >= 40) return '#f39c12';
 return '#e74c3c';
 }
+
 function getSafetyLabel(index) {
 if (index >= 80) return '🟢 Очень безопасно';
 if (index >= 60) return '🟡 Безопасно';
@@ -843,10 +810,10 @@ if (index >= 40) return '🟠 Умеренный риск';
 if (index >= 20) return '🔴 Повышенный риск';
 return '⚫ Высокий риск';
 }
-// ==================== ИНИЦИАЛИЗАЦИЯ КАРТЫ ====================
+
 ymaps.ready(init);
+
 function init() {
-console.log('🗺️ Yandex Maps API загружен');
 try {
 map = new ymaps.Map('map', {
 center: CONFIG.defaultCoords,
@@ -855,15 +822,11 @@ controls: ['zoomControl', 'fullscreenControl', 'geolocationControl']
 });
 try {
 new ymaps.layer.TrafficLayer({ trafficProvider: 'yandex#actual' }).setMap(map);
-} catch(e) {
-console.warn('⚠️ Слой пробок:', e);
-}
+} catch(e) {}
 createPlacemark(CONFIG.defaultCoords);
 mapInitialized = true;
-console.log('✅ Карта успешно инициализирована');
 map.events.add('click', function(e) {
 const coords = e.get('coords');
-logDebug(`🖱️ Клик по карте: ${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}`);
 movePlacemark(coords, true);
 });
 checkServer();
@@ -871,15 +834,15 @@ requestWeatherData(CONFIG.defaultCoords, true);
 document.getElementById('btn-force-refresh').addEventListener('click', forceRefresh);
 document.getElementById('btn-save').addEventListener('click', saveCurrentPoint);
 } catch (error) {
-console.error('❌ Ошибка инициализации карты:', error);
 showMapError(error);
 }
 }
+
 function showMapError(error) {
 const errorEl = document.getElementById('map-error');
 errorEl.classList.add('visible');
-console.error('Map error:', error);
 }
+
 function createPlacemark(coords) {
 if (placemark) map.geoObjects.remove(placemark);
 placemark = new ymaps.Placemark(coords, {
@@ -893,7 +856,6 @@ iconColor: '#e74c3c'
 });
 placemark.events.add('dragstart', () => {
 isDragging = true;
-logDebug('🔴 Drag START');
 });
 placemark.events.add('drag', (e) => {
 const coords = placemark.geometry.getCoordinates();
@@ -904,11 +866,11 @@ throttledRequest(coords);
 placemark.events.add('dragend', () => {
 isDragging = false;
 const coords = placemark.geometry.getCoordinates();
-logDebug('🟢 Drag END — форсированное обновление');
 requestWeatherData(coords, true);
 });
 map.geoObjects.add(placemark);
 }
+
 function movePlacemark(coords, forceUpdate = false) {
 if (placemark) {
 placemark.geometry.setCoordinates(coords);
@@ -925,23 +887,23 @@ requestWeatherData(coords, true);
 throttledRequest(coords);
 }
 }
+
 function updateCoordsDisplay(coords) {
 document.getElementById('coords-display').textContent =
 `Координаты: ${formatCoord(coords[0])}, ${formatCoord(coords[1])}`;
 }
+
 const throttledRequest = throttle(
 (coords) => requestWeatherData(coords, false),
 CONFIG.throttleMs,
 'DRAG'
 );
-// ==================== ЗАПРОС ДАННЫХ ====================
+
 async function requestWeatherData(coords, force = false) {
 requestCounter++;
-logDebug(`📡 Запрос #${requestCounter} к ${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}`);
 if (!force && lastRequestCoords &&
 Math.abs(coords[0] - lastRequestCoords[0]) < 0.0001 &&
 Math.abs(coords[1] - lastRequestCoords[1]) < 0.0001) {
-logDebug('⏭️ Те же координаты, пропускаем');
 return;
 }
 showLoader(true);
@@ -956,9 +918,7 @@ timeout: 5000
 let data;
 if (response.ok) {
 data = await response.json();
-logDebug(`✅ Получено с сервера`);
 } else {
-logDebug(`⚠️ Сервер недоступен, используем API`);
 data = { now: {} };
 }
 const risks = await calculateRiskFactors(coords, data);
@@ -966,8 +926,6 @@ data.risks = risks;
 renderData(data, coords);
 updateStatus('ok');
 } catch (err) {
-console.error('❌ Запрос:', err);
-logDebug(`❌ Ошибка: ${err.message}, используем API`);
 const risks = await calculateRiskFactors(coords, { now: {} });
 renderData({ now: {}, risks }, coords);
 updateStatus('warning', 'API данные');
@@ -975,12 +933,12 @@ updateStatus('warning', 'API данные');
 showLoader(false);
 }
 }
+
 function forceRefresh() {
-logDebug('🔄 Принудительное обновление');
 apiCache.clear();
 requestWeatherData(currentCoords, true);
 }
-// ==================== ОТРИСОВКА ====================
+
 function renderData(data, coords) {
 const w = data?.risks?.weather || data?.now?.weather || {};
 const risks = data?.risks;
@@ -998,13 +956,13 @@ else { darkColor = '#c0392b'; }
 safetyLabel.textContent = getSafetyLabel(safetyIndex);
 safetyCard.style.background = `linear-gradient(135deg, ${safetyColor} 0%, ${darkColor} 100%)`;
 safetyCard.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.15)';
-// ✅ УДАЛЕНО: бейдж источника шума больше не обновляется
+
 updateRiskItem('noise', risks?.noise?.level, risks?.noise?.risk, risks?.noise?.desc);
 updateRiskItem('crowd', risks?.crowd?.level, risks?.crowd?.risk, risks?.crowd?.desc);
 updateRiskItem('light', risks?.light?.level, risks?.light?.risk, risks?.light?.desc);
 updateRiskItem('time', null, risks?.time?.risk, risks?.time?.desc, risks?.time?.value);
 updateRiskItem('day', null, risks?.day?.risk, risks?.day?.desc, risks?.day?.value);
-// Погода
+
 const tempEl = document.getElementById('w-temp');
 const condEl = document.getElementById('w-cond');
 const windEl = document.getElementById('w-wind');
@@ -1013,7 +971,7 @@ if (tempEl) tempEl.textContent = w.temp != null ? `${w.temp}°C` : '—';
 if (condEl) condEl.textContent = w.condition || '—';
 if (windEl) windEl.textContent = w.wind || '—';
 if (humEl) humEl.textContent = w.humidity != null ? `${w.humidity}%` : '—';
-// Пробки
+
 const t = risks?.traffic || { level: 5, status: 'Умеренная загруженность', speed_avg: '25 км/ч' };
 const levelEl = document.getElementById('t-level');
 const speedEl = document.getElementById('t-speed');
@@ -1029,6 +987,7 @@ statusEl.className = 'data-value ' + (level !== '—' ? getTrafficClass(level) :
 }
 document.getElementById('btn-save').style.display = 'inline-block';
 }
+
 function updateRiskItem(type, level, risk, desc, valueOverride = null) {
 const bar = document.getElementById(`${type}-bar`);
 const value = document.getElementById(`${type}-value`);
@@ -1046,6 +1005,7 @@ value.textContent = `${risk}%`;
 }
 if (description) description.textContent = desc;
 }
+
 function showLoader(show) {
 const loader = document.getElementById('loader');
 const content = document.getElementById('content');
@@ -1053,13 +1013,14 @@ loader.classList.toggle('active', show);
 content.style.opacity = show ? '0.7' : '1';
 content.style.pointerEvents = show ? 'none' : 'auto';
 }
+
 function updateStatus(state, text = '') {
 const dot = document.getElementById('server-dot');
 const txt = document.getElementById('server-text');
 dot.className = 'status-dot ' + (state === 'ok' ? 'status-good' : state === 'error' ? 'status-error' : 'status-warning');
 txt.textContent = text || (state === 'ok' ? 'Онлайн' : state === 'error' ? 'Ошибка' : 'Подключение...');
 }
-// ==================== СОХРАНЁННЫЕ ТОЧКИ ====================
+
 function saveCurrentPoint() {
 const name = prompt('📌 Название точки:', `Точка #${savedPoints.length + 1}`);
 if (!name?.trim()) return;
@@ -1075,11 +1036,12 @@ savedPoints.unshift(point);
 savePointsToStorage();
 alert('✅ Точка сохранена!');
 }
+
 function savePointsToStorage() {
 try { localStorage.setItem('smartKazanPoints', JSON.stringify(savedPoints)); }
-catch(e) { console.warn('💾 LocalStorage:', e); }
+catch(e) {}
 }
-// ==================== СЕРВЕР ====================
+
 async function checkServer() {
 try {
 const controller = new AbortController();
@@ -1092,10 +1054,10 @@ else throw new Error('HTTP ' + r.status);
 updateStatus('warning', 'API данные');
 }
 }
+
 setInterval(checkServer, 30000);
 setTimeout(() => {
 if (!mapInitialized) {
-console.warn('⚠️ Карта не загрузилась за 5 секунд');
 showMapError(new Error('Timeout'));
 }
 }, 5000);
