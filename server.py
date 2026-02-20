@@ -4,26 +4,20 @@ import requests
 import random
 import datetime
 
-
 app = Flask(__name__)
 CORS(app)
 
-
 OPENWEATHER_API_KEY = "92cbd6cb2e68bf6086edb6cb08003250"
 
-
 def get_weather_forecast(lat, lon, hours_ahead):
-
     try:
         url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric&lang=ru"
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
 
-
         now_utc = datetime.datetime.now(datetime.timezone.utc)
         target_time = now_utc + datetime.timedelta(hours=hours_ahead)
-
 
         closest_forecast = None
         min_diff = float('inf')
@@ -50,7 +44,7 @@ def get_weather_forecast(lat, lon, hours_ahead):
         }
 
     except Exception as e:
-        print(f"❌ Ошибка OpenWeather: {e}")
+        print(f"Ошибка OpenWeather: {e}")
         base_temp = -5 if hours_ahead == 0 else -5 - (hours_ahead * 0.5)
         return {
             "temp": round(base_temp, 1),
@@ -60,9 +54,7 @@ def get_weather_forecast(lat, lon, hours_ahead):
             "pressure": f"{random.randint(740, 760)} гПа"
         }
 
-
 def get_traffic_analysis(lat, lon, hours_ahead):
-
     current_hour = datetime.datetime.now().hour
     is_rush_hour = (8 <= current_hour < 10) or (17 <= current_hour < 19)
 
@@ -86,7 +78,6 @@ def get_traffic_analysis(lat, lon, hours_ahead):
         "note": "Данные о пробках через Yandex Maps API"
     }
 
-
 def get_incidents(lat, lon):
     incidents = []
 
@@ -108,7 +99,6 @@ def get_incidents(lat, lon):
 
     return incidents
 
-
 @app.route('/api/analyze', methods=['POST'])
 def analyze_point():
     data = request.json
@@ -118,7 +108,7 @@ def analyze_point():
     if lat is None or lon is None:
         return jsonify({"error": "Требуются координаты lat и lon"}), 400
 
-    print(f"📍 Анализ точки: {lat:.4f}, {lon:.4f}")
+    print(f"Анализ точки: {lat:.4f}, {lon:.4f}")
 
     response_data = {
         "location": {
@@ -145,7 +135,6 @@ def analyze_point():
 
     return jsonify(response_data)
 
-
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({
@@ -155,7 +144,6 @@ def health_check():
         },
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
