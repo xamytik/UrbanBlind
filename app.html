@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UrbanBlind - Анализ рисков и безопасности</title>
+<title>UrbanBlind - Анализ рисков и безопасности (Исправленный)</title>
 <style>
+/* Стили остались без изменений */
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 :root {
 --glass-bg: rgba(255, 255, 255, 0.85);
@@ -256,7 +257,6 @@ body { flex-direction: column; }
 <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="day-desc">Данные загружаются...</div>
 </div>
 </div>
-</div>
 <div class="card">
 <div class="card-title"><span class="icon">🌤️</span>Погода</div>
 <div class="data-row"><span class="data-label">Температура:</span><span class="data-value" id="w-temp">—</span></div>
@@ -278,23 +278,26 @@ body { flex-direction: column; }
 </div>
 <script src="https://api-maps.yandex.ru/2.1/?apikey=c2763cd1-5a14-4131-842c-2bbd60932c52&lang=ru_RU" type="text/javascript"></script>
 <script>
+// --- НАСТРОЙКИ ---
 const CONFIG = {
-throttleMs: 600,
-minDragDistance: 0.001,
-apiBase: 'http://127.0.0.1:5000/api',
-defaultCoords: [55.7961, 49.1064],
-debugMode: false,
-overpassUrl: 'https://overpass-api.de/api/interpreter',
-openMeteoUrl: 'https://api.open-meteo.com/v1/forecast',
-sunriseUrl: 'https://api.sunrise-sunset.org/json',
-overpassTimeout: 25,
-cacheDuration: 300000,
-meersensApiKey: '0N2Odysx0NER8r240yxEY5DvbdC900HU',
-meersensBaseUrl: 'https://api.meersens.com/environment/public/noise/current',
-tomTomApiKey: 'yq5C1dZiEviylLPM4Z2ZSh9wzuACsoQZ',
-tomTomBaseUrl: 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/11/json'
+    throttleMs: 600,
+    minDragDistance: 0.001,
+    apiBase: 'http://127.0.0.1:5000/api', // Для обратной совместимости
+    defaultCoords: [55.7961, 49.1064],
+    debugMode: false,
+    overpassUrl: 'https://overpass-api.de/api/interpreter',
+    openMeteoUrl: 'https://api.open-meteo.com/v1/forecast',
+    sunriseUrl: 'https://api.sunrise-sunset.org/json',
+    overpassTimeout: 25,
+    cacheDuration: 300000,
+    // --- НОВЫЕ КЛЮЧИ ---
+    meersensApiKey: 'YOUR_MEERSENS_API_KEY', // <- ЗАМЕНИТЕ НА СВОЙ
+    meersensBaseUrl: 'https://api.meersens.com/environment/public/noise/current',
+    tomTomApiKey: 'YOUR_TOMTOM_API_KEY', // <- ЗАМЕНИТЕ НА СВОЙ
+    tomTomBaseUrl: 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/11/json'
 };
 
+// --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
 let map, placemark;
 let currentCoords = [...CONFIG.defaultCoords];
 let lastRequestTime = 0;
@@ -307,760 +310,782 @@ let requestCounter = 0;
 let mapInitialized = false;
 let apiCache = new Map();
 
+// --- ФУНКЦИИ ---
 function throttle(func, limitMs, label = '') {
-return function(...args) {
-const now = Date.now();
-const coords = args[0];
-if (lastRequestCoords) {
-const dist = Math.hypot(coords[0] - lastRequestCoords[0], coords[1] - lastRequestCoords[1]);
-if (dist < CONFIG.minDragDistance && now - lastRequestTime < limitMs * 2) {
-return;
-}
-}
-if (now - lastRequestTime >= limitMs) {
-lastRequestTime = now;
-lastRequestCoords = [...coords];
-func.apply(this, args);
-} else {
-if (pendingRequest) clearTimeout(pendingRequest);
-pendingRequest = setTimeout(() => {
-lastRequestTime = Date.now();
-lastRequestCoords = [...coords];
-func.apply(this, args);
-pendingRequest = null;
-}, limitMs - (now - lastRequestTime));
-}
-};
+    return function(...args) {
+        const now = Date.now();
+        const coords = args[0];
+        if (lastRequestCoords) {
+            const dist = Math.hypot(coords[0] - lastRequestCoords[0], coords[1] - lastRequestCoords[1]);
+            if (dist < CONFIG.minDragDistance && now - lastRequestTime < limitMs * 2) {
+                return;
+            }
+        }
+        if (now - lastRequestTime >= limitMs) {
+            lastRequestTime = now;
+            lastRequestCoords = [...coords];
+            func.apply(this, args);
+        } else {
+            if (pendingRequest) clearTimeout(pendingRequest);
+            pendingRequest = setTimeout(() => {
+                lastRequestTime = Date.now();
+                lastRequestCoords = [...coords];
+                func.apply(this, args);
+                pendingRequest = null;
+            }, limitMs - (now - lastRequestTime));
+        }
+    };
 }
 
 function formatCoord(val) { return val.toFixed(4); }
+
 function getTrafficClass(level) {
-if (level > 7) return 'traffic-high';
-if (level > 4) return 'traffic-medium';
-return 'traffic-low';
+    if (level > 7) return 'traffic-high';
+    if (level > 4) return 'traffic-medium';
+    return 'traffic-low';
 }
 
 function getCachedData(key) {
-const cached = apiCache.get(key);
-if (cached && Date.now() - cached.time < CONFIG.cacheDuration) {
-return cached.data;
-}
-return null;
+    const cached = apiCache.get(key);
+    if (cached && Date.now() - cached.time < CONFIG.cacheDuration) {
+        return cached.data;
+    }
+    return null;
 }
 
 function setCachedData(key, data) {
-apiCache.set(key, { data, time: Date.now() });
+    apiCache.set(key, { data, time: Date.now() });
 }
 
-async function getNoiseFromMeersens(lat, lon) {
-const cacheKey = `meersens:${lat.toFixed(4)},${lon.toFixed(4)}`;
-const cached = getCachedData(cacheKey);
-if (cached) {
-cached.source = 'meersens-cached';
-return cached;
-}
-try {
-const url = `${CONFIG.meersensBaseUrl}?lat=${lat}&lng=${lon}`;
-const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 8000);
-const response = await fetch(url, {
-headers: { 'apikey': CONFIG.meersensApiKey, 'Accept': 'application/json' },
-signal: controller.signal
-});
-clearTimeout(timeoutId);
-if (!response.ok) throw new Error(`HTTP ${response.status}`);
-const data = await response.json();
-let noiseLevel = null;
-if (data.noise) {
-noiseLevel = data.noise.Lden || data.noise.Lday || data.noise.Lnight || data.noise.average;
-}
-if (noiseLevel !== null && noiseLevel !== undefined) {
-const risk = Math.min(100, Math.max(0, ((noiseLevel - 30) / 55) * 100));
-const result = {
-level: Math.round(noiseLevel),
-risk: Math.round(risk),
-desc: getNoiseDescription(noiseLevel),
-source: 'meersens',
-data: data
-};
-setCachedData(cacheKey, result);
-return result;
-} else {
-throw new Error('No noise data in response');
-}
-} catch (error) {
-throw error;
-}
-}
-
-function getNoiseDescription(db) {
-if (db < 45) return 'Тихо: спокойная зона, низкий риск для слуха';
-if (db < 55) return 'Умеренный шум: жилая зона, комфортно';
-if (db < 65) return 'Заметный шум: оживлённая улица, возможна усталость';
-if (db < 75) return 'Шумно: транспортная магистраль, риск при длительном воздействии';
-return 'Очень шумно: зона высокого риска, рекомендуется защита слуха';
-}
-
-async function queryOverpass(query) {
-const cacheKey = `overpass:${query.substring(0, 100)}`;
-const cached = getCachedData(cacheKey);
-if (cached) return cached;
-try {
-const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 10000);
-const response = await fetch(CONFIG.overpassUrl, {
-method: 'POST',
-body: query,
-headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-signal: controller.signal
-});
-clearTimeout(timeoutId);
-if (!response.ok) throw new Error(`HTTP ${response.status}`);
-const data = await response.json();
-setCachedData(cacheKey, data);
-return data;
-} catch (error) {
-throw error;
-}
-}
-
-async function getNoiseFromOSM(lat, lon) {
-try {
-const meersensData = await getNoiseFromMeersens(lat, lon);
-return meersensData;
-} catch (e) {
-}
-const query = `
-[out:json][timeout:${CONFIG.overpassTimeout}];
-(
-way["highway"](around:500,${lat},${lon});
-node["amenity"="bar"](around:500,${lat},${lon});
-node["amenity"="restaurant"](around:500,${lat},${lon});
-node["amenity"="cafe"](around:500,${lat},${lon});
-node["landuse"="industrial"](around:500,${lat},${lon});
-node["amenity"="fuel"](around:500,${lat},${lon});
-);
-out count;
-`;
-try {
-const data = await queryOverpass(query);
-const count = data.elements?.length || 0;
-let level, risk, desc;
-if (count > 50) { level = 85; risk = 75; desc = 'Очень шумно: много дорог и заведений'; }
-else if (count > 25) { level = 65; risk = 55; desc = 'Умеренный шум: средняя активность'; }
-else if (count > 10) { level = 45; risk = 35; desc = 'Тихо: мало источников шума'; }
-else { level = 25; risk = 20; desc = 'Очень тихо: спокойная зона'; }
-return { level, risk, desc, source: 'osm' };
-} catch (e) {
-return getNoiseFallback(lat, lon);
-}
-}
-
-function getNoiseFallback(lat, lon) {
-const centerDist = Math.hypot(lat - 55.7961, lon - 49.1064);
-if (centerDist < 0.02) return { level: 75, risk: 65, desc: 'Центр: высокий уровень шума', source: 'fallback' };
-if (centerDist < 0.05) return { level: 60, risk: 45, desc: 'Спальный район: умеренный шум', source: 'fallback' };
-return { level: 45, risk: 30, desc: 'Окраина: низкий уровень шума', source: 'fallback' };
-}
-
-async function getCrowdFromOSM(lat, lon) {
-const query = `
-[out:json][timeout:${CONFIG.overpassTimeout}];
-(
-node["shop"](around:300,${lat},${lon});
-node["office"](around:300,${lat},${lon});
-node["public_transport"](around:300,${lat},${lon});
-node["amenity"="cafe"](around:300,${lat},${lon});
-node["amenity"="restaurant"](around:300,${lat},${lon});
-node["amenity"="bar"](around:300,${lat},${lon});
-node["amenity"="fast_food"](around:300,${lat},${lon});
-node["amenity"="marketplace"](around:300,${lat},${lon});
-way["building"="retail"](around:300,${lat},${lon});
-way["building"="commercial"](around:300,${lat},${lon});
-);
-out count;
-`;
-try {
-const data = await queryOverpass(query);
-const count = data.elements?.length || 0;
-let level, risk, desc;
-if (count > 40) { level = 85; risk = 65; desc = 'Высокая плотность: торговая зона'; }
-else if (count > 20) { level = 60; risk = 45; desc = 'Средняя плотность: смешанная застройка'; }
-else if (count > 5) { level = 35; risk = 25; desc = 'Низкая плотность: жилой район'; }
-else { level = 15; risk = 15; desc = 'Очень низкая плотность: тихая зона'; }
-return { level, risk, desc };
-} catch (e) {
-return getCrowdFallback(lat, lon);
-}
-}
-
-function getCrowdFallback(lat, lon) {
-const hour = new Date().getHours();
-const centerDist = Math.hypot(lat - 55.7961, lon - 49.1064);
-if (centerDist < 0.02 && hour >= 10 && hour < 22) return { level: 80, risk: 55, desc: 'Высокая плотность: торговые зоны' };
-if (centerDist < 0.05) return { level: 50, risk: 35, desc: 'Средняя плотность: жилые районы' };
-return { level: 25, risk: 20, desc: 'Низкая плотность: тихие зоны' };
-}
-
-async function getLightFromOSM(lat, lon) {
-const now = new Date();
-const timeInfo = await getTimeOfDayByLocation(lat, lon);
-const isDaytime = timeInfo.isDaytime;
-if (isDaytime) {
-return { level: 95, risk: 10, desc: 'Естественное освещение (день)' };
-}
-const query = `
-[out:json][timeout:${CONFIG.overpassTimeout}];
-(
-node["man_made"="street_lamp"](around:200,${lat},${lon});
-way["lighting"](around:200,${lat},${lon});
-node["highway"="street_lamp"](around:200,${lat},${lon});
-);
-out count;
-`;
-try {
-const data = await queryOverpass(query);
-const count = data.elements?.length || 0;
-let level, risk, desc;
-if (count > 15) { level = 75; risk = 25; desc = 'Хорошее уличное освещение'; }
-else if (count > 5) { level = 50; risk = 45; desc = 'Среднее освещение'; }
-else { level = 25; risk = 70; desc = 'Слабое освещение'; }
-return { level, risk, desc };
-} catch (e) {
-return getLightFallback(lat, lon);
-}
-}
-
-function getLightFallback(lat, lon) {
-const hour = new Date().getHours();
-if (hour >= 7 && hour < 21) return { level: 95, risk: 10, desc: 'День' };
-return { level: 25, risk: 70, desc: 'Ночь' };
-}
-
-async function getSunriseSunset(lat, lon) {
-const cacheKey = `sunrise:${lat.toFixed(4)},${lon.toFixed(4)}`;
-const cached = getCachedData(cacheKey);
-if (cached) return cached;
-try {
-const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=today&formatted=0`;
-const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 5000);
-const response = await fetch(url, { signal: controller.signal });
-clearTimeout(timeoutId);
-if (!response.ok) throw new Error(`HTTP ${response.status}`);
-const data = await response.json();
-if (!data.results || !data.results.sunrise) throw new Error('Invalid response format');
-const result = {
-sunrise: new Date(data.results.sunrise),
-sunset: new Date(data.results.sunset),
-solar_noon: new Date(data.results.solar_noon),
-civil_twilight_begin: new Date(data.results.civil_twilight_begin),
-civil_twilight_end: new Date(data.results.civil_twilight_end)
-};
-setCachedData(cacheKey, result);
-return result;
-} catch (error) {
-return null;
-}
-}
-
-async function getTimeOfDayByLocation(lat, lon) {
-const now = new Date();
-const sunData = await getSunriseSunset(lat, lon);
-if (!sunData) {
-const hour = now.getHours();
-return {
-timeOfDay: hour >= 6 && hour < 12 ? 'Утро' : hour >= 12 && hour < 18 ? 'День' : hour >= 18 && hour < 23 ? 'Вечер' : 'Ночь',
-isDaytime: hour >= 6 && hour < 22,
-description: 'Локальное время'
-};
-}
-const isDaytime = now >= sunData.sunrise && now < sunData.sunset;
-let timeOfDay, description;
-if (now < sunData.sunrise) { timeOfDay = 'Ночь'; description = 'Темно, ограниченная видимость'; }
-else if (now < new Date(sunData.sunrise.getTime() + 2 * 60 * 60 * 1000)) { timeOfDay = 'Утро'; description = 'Активное движение, хороший обзор'; }
-else if (now < sunData.sunset) { timeOfDay = 'День'; description = 'Высокая активность, хорошая видимость'; }
-else if (now < sunData.civil_twilight_end) { timeOfDay = 'Вечер'; description = 'Умеренная видимость, активность снижается'; }
-else { timeOfDay = 'Ночь'; description = 'Темно, ограниченная видимость'; }
-return { timeOfDay, isDaytime, description };
-}
-
+// --- ПОГОДА (ИСПРАВЛЕНО) ---
 async function getWeatherFromOpenMeteo(lat, lon) {
-const cacheKey = `weather:${lat.toFixed(2)},${lon.toFixed(2)}`;
-const cached = getCachedData(cacheKey);
-if (cached) {
-return cached;
-}
-try {
-const url = `${CONFIG.openMeteoUrl}?` +
-`latitude=${lat}&` +
-`longitude=${lon}&` +
-`current_weather=true&` +
-`hourly=relative_humidity_2m&` +
-`timezone=auto&` +
-`forecast_days=1`;
+    const cacheKey = `weather:${lat.toFixed(2)},${lon.toFixed(2)}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+        return cached;
+    }
+    try {
+        const url = `${CONFIG.openMeteoUrl}?` +
+            `latitude=${lat}&` +
+            `longitude=${lon}&` +
+            `current_weather=true&` +
+            `hourly=relative_humidity_2m&` +
+            `timezone=auto&` +
+            `forecast_days=1`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!data.current_weather) throw new Error('Нет данных о текущей погоде');
 
-const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 10000);
-const response = await fetch(url, {
-method: 'GET',
-headers: { 'Accept': 'application/json' },
-signal: controller.signal
-});
-clearTimeout(timeoutId);
-
-if (!response.ok) throw new Error(`HTTP ${response.status}`);
-const data = await response.json();
-
-if (!data.current_weather) throw new Error('Нет данных о текущей погоде');
-
-let humidity = 0;
-if (data.hourly && data.hourly.time && data.hourly.relative_humidity_2m) {
-const now = new Date();
-const currentHourStr = now.toISOString().slice(0, 13); 
-const index = data.hourly.time.findIndex(t => t.startsWith(currentHourStr));
-
-if (index !== -1 && data.hourly.relative_humidity_2m[index] !== undefined) {
-humidity = data.hourly.relative_humidity_2m[index];
-} else {
-humidity = data.hourly.relative_humidity_2m[0] || 0;
-}
-}
-
-const weather = {
-temp: data.current_weather.temperature ?? 0,
-wind: `${data.current_weather.windspeed ?? 0} м/с`,
-windDirection: getWindDirection(data.current_weather.winddirection),
-humidity: humidity,
-condition: getWeatherCondition(data.current_weather.weathercode),
-weatherCode: data.current_weather.weathercode
-};
-setCachedData(cacheKey, weather);
-return weather;
-} catch (error) {
-return {
-temp: 0, wind: '—', windDirection: '—', humidity: 0,
-condition: 'Недоступно', weatherCode: null, error: error.message
-};
-}
+        let humidity = 0;
+        if (data.hourly && data.hourly.time && data.hourly.relative_humidity_2m) {
+            const now = new Date();
+            const currentHourStr = now.toISOString().slice(0, 13);
+            const index = data.hourly.time.findIndex(t => t.startsWith(currentHourStr));
+            if (index !== -1 && data.hourly.relative_humidity_2m[index] !== undefined) {
+                humidity = data.hourly.relative_humidity_2m[index];
+            } else {
+                humidity = data.hourly.relative_humidity_2m[0] || 0;
+            }
+        }
+        const weather = {
+            temp: data.current_weather.temperature ?? 0,
+            wind: `${data.current_weather.windspeed ?? 0} м/с`,
+            windDirection: getWindDirection(data.current_weather.winddirection),
+            humidity: humidity,
+            condition: getWeatherCondition(data.current_weather.weathercode),
+            weatherCode: data.current_weather.weathercode
+        };
+        setCachedData(cacheKey, weather);
+        return weather;
+    } catch (error) {
+        console.error("Ошибка получения погоды:", error);
+        return {
+            temp: 0, wind: '—', windDirection: '—', humidity: 0,
+            condition: 'Недоступно', weatherCode: null, error: error.message
+        };
+    }
 }
 
 function getWindDirection(degrees) {
-if (degrees === undefined || degrees === null) return '—';
-const directions = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'];
-const index = Math.round(degrees / 45) % 8;
-return directions[index];
+    if (degrees === undefined || degrees === null) return '—';
+    const directions = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'];
+    const index = Math.round(degrees / 45) % 8;
+    return directions[index];
 }
 
 function getWeatherCondition(code) {
-const conditions = {
-0: '☀️ Ясно', 1: '🌤️ Преимущественно ясно', 2: '⛅ Переменная облачность',
-3: '☁️ Пасмурно', 45: '🌫️ Туман', 48: '❄️ Иней',
-51: '💧 Морось', 53: '💧 Морось', 55: '💧 Морось',
-61: '🌧️ Дождь', 63: '🌧️ Дождь', 65: '🌧️ Сильный дождь',
-71: '❄️ Снег', 73: '❄️ Снег', 75: '❄️ Сильный снег',
-80: '🌦️ Ливень', 81: '🌦️ Ливень', 82: '🌦️ Сильный ливень',
-95: '⛈️ Гроза', 96: '⛈️ Гроза с градом', 99: '⛈️ Сильная гроза с градом'
-};
-return conditions[code] || '❓ Неизвестно';
+    const conditions = {
+        0: '☀️ Ясно', 1: '🌤️ Преимущественно ясно', 2: '⛅ Переменная облачность',
+        3: '☁️ Пасмурно', 45: '🌫️ Туман', 48: '❄️ Иней',
+        51: '💧 Морось', 53: '💧 Морось', 55: '💧 Морось',
+        61: '🌧️ Дождь', 63: '🌧️ Дождь', 65: '🌧️ Сильный дождь',
+        71: '❄️ Снег', 73: '❄️ Снег', 75: '❄️ Сильный снег',
+        80: '🌦️ Ливень', 81: '🌦️ Ливень', 82: '🌦️ Сильный ливень',
+        95: '⛈️ Гроза', 96: '⛈️ Гроза с градом', 99: '⛈️ Сильная гроза с градом'
+    };
+    return conditions[code] || '❓ Неизвестно';
 }
 
+// --- ПРОБКИ (ИСПРАВЛЕНО) ---
 async function getTrafficFromTomTom(lat, lon) {
-const cacheKey = `tomtom:${lat.toFixed(4)},${lon.toFixed(4)}`;
-const cached = getCachedData(cacheKey);
-if (cached) return cached;
-try {
-const url = `${CONFIG.tomTomBaseUrl}/${CONFIG.tomTomApiKey}?point=${lat},${lon}`;
-const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 10000);
-const response = await fetch(url, {
-headers: { 'Accept': 'application/json' },
-signal: controller.signal
-});
-clearTimeout(timeoutId);
-if (!response.ok) throw new Error(`HTTP ${response.status}`);
-const data = await response.json();
-if (!data.flowSegmentData || !data.flowSegmentData.currentSpeed) {
-throw new Error('Invalid response format');
-}
-const { currentSpeed, freeFlowSpeed, roadClosure } = data.flowSegmentData;
-let trafficLevel = 0;
-if (roadClosure) {
-trafficLevel = 10;
-} else if (freeFlowSpeed > 0) {
-const speedRatio = currentSpeed / freeFlowSpeed;
-trafficLevel = Math.min(10, Math.round((1 - speedRatio) * 10));
-}
-let status, speedAvg;
-if (roadClosure) {
-status = 'Дорога закрыта';
-speedAvg = '0 км/ч';
-} else if (trafficLevel > 7) {
-status = 'Высокая загруженность';
-speedAvg = `${Math.min(20, currentSpeed)} км/ч`;
-} else if (trafficLevel > 4) {
-status = 'Умеренная загруженность';
-speedAvg = `${Math.min(30, currentSpeed)} км/ч`;
-} else {
-status = 'Низкая загруженность';
-speedAvg = `${Math.min(50, currentSpeed)} км/ч`;
-}
-const trafficData = {
-level: trafficLevel,
-status: status,
-speed_avg: speedAvg,
-current_speed: currentSpeed,
-free_flow_speed: freeFlowSpeed,
-road_closure: roadClosure
-};
-setCachedData(cacheKey, trafficData);
-return trafficData;
-} catch (error) {
-return getTrafficFallback(lat, lon);
-}
+    const cacheKey = `tomtom:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) return cached;
+
+    try {
+        const url = `${CONFIG.tomTomBaseUrl}/${CONFIG.tomTomApiKey}?point=${lat},${lon}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(url, {
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!data.flowSegmentData || !data.flowSegmentData.currentSpeed) {
+            throw new Error('Invalid response format');
+        }
+        const { currentSpeed, freeFlowSpeed, roadClosure } = data.flowSegmentData;
+        let trafficLevel = 0;
+        if (roadClosure) {
+            trafficLevel = 10;
+        } else if (freeFlowSpeed > 0) {
+            const speedRatio = currentSpeed / freeFlowSpeed;
+            trafficLevel = Math.min(10, Math.round((1 - speedRatio) * 10));
+        }
+        let status, speedAvg;
+        if (roadClosure) {
+            status = 'Дорога закрыта';
+            speedAvg = '0 км/ч';
+        } else if (trafficLevel > 7) {
+            status = 'Высокая загруженность';
+            speedAvg = `${Math.min(20, currentSpeed)} км/ч`;
+        } else if (trafficLevel > 4) {
+            status = 'Умеренная загруженность';
+            speedAvg = `${Math.min(30, currentSpeed)} км/ч`;
+        } else {
+            status = 'Низкая загруженность';
+            speedAvg = `${Math.min(50, currentSpeed)} км/ч`;
+        }
+        const trafficData = {
+            level: trafficLevel,
+            status: status,
+            speed_avg: speedAvg,
+            current_speed: currentSpeed,
+            free_flow_speed: freeFlowSpeed,
+            road_closure: roadClosure
+        };
+        setCachedData(cacheKey, trafficData);
+        return trafficData;
+    } catch (error) {
+        console.error("Ошибка получения пробок:", error);
+        // Fallback в случае ошибки API
+        return {
+            level: 5,
+            status: 'Данные недоступны',
+            speed_avg: '--'
+        };
+    }
 }
 
-function getTrafficFallback(lat, lon) {
-const hour = new Date().getHours();
-const day = new Date().getDay();
-let trafficLevel;
-if (day === 0 || day === 6) {
-trafficLevel = 3;
-} else {
-if ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19)) {
-trafficLevel = 8;
-} else if (hour >= 10 && hour <= 16) {
-trafficLevel = 5;
-} else {
-trafficLevel = 4;
-}
-}
-let status, speedAvg;
-if (trafficLevel > 7) { status = 'Высокая загруженность'; speedAvg = '10-20 км/ч'; }
-else if (trafficLevel > 4) { status = 'Умеренная загруженность'; speedAvg = '20-30 км/ч'; }
-else { status = 'Низкая загруженность'; speedAvg = '30-40 км/ч'; }
-return { level: trafficLevel, status: status, speed_avg: speedAvg };
+// --- ШУМ (ИСПРАВЛЕНО: теперь через API Meersens) ---
+async function getNoiseFromMeersens(lat, lon) {
+    const cacheKey = `meersens:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+        cached.source = 'meersens-cached';
+        return cached;
+    }
+    try {
+        const url = `${CONFIG.meersensBaseUrl}?lat=${lat}&lng=${lon}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch(url, {
+            headers: { 'apikey': CONFIG.meersensApiKey, 'Accept': 'application/json' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        let noiseLevel = null;
+        if (data.noise) {
+            noiseLevel = data.noise.Lden || data.noise.Lday || data.noise.Lnight || data.noise.average;
+        }
+        if (noiseLevel !== null && noiseLevel !== undefined) {
+            const risk = Math.min(100, Math.max(0, ((noiseLevel - 30) / 55) * 100));
+            const result = {
+                level: Math.round(noiseLevel),
+                risk: Math.round(risk),
+                desc: getNoiseDescription(noiseLevel),
+                source: 'meersens',
+                data: data
+            };
+            setCachedData(cacheKey, result);
+            return result;
+        } else {
+            throw new Error('No noise data in response');
+        }
+    } catch (error) {
+        console.error("Ошибка получения шума:", error);
+        // Fallback если API не работает
+        return {
+            level: 45,
+            risk: 30,
+            desc: 'Данные шума временно недоступны',
+            source: 'fallback'
+        };
+    }
 }
 
+function getNoiseDescription(db) {
+    if (db < 45) return 'Тихо: спокойная зона, низкий риск для слуха';
+    if (db < 55) return 'Умеренный шум: жилая зона, комфортно';
+    if (db < 65) return 'Заметный шум: оживлённая улица, возможна усталость';
+    if (db < 75) return 'Шумно: транспортная магистраль, риск при длительном воздействии';
+    return 'Очень шумно: зона высокого риска, рекомендуется защита слуха';
+}
+
+// --- ПЛОТНОСТЬ ЛЮДЕЙ (ИСПРАВЛЕНО: теперь через Overpass API) ---
+async function getCrowdFromOSM(lat, lon) {
+    const cacheKey = `crowd:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+        return cached;
+    }
+    const query = `
+[out:json][timeout:${CONFIG.overpassTimeout}];
+(
+  node["amenity"="cafe"](around:200,${lat},${lon});
+  node["amenity"="bar"](around:200,${lat},${lon});
+  node["amenity"="pub"](around:200,${lat},${lon});
+  node["amenity"="fast_food"](around:200,${lat},${lon});
+  node["amenity"="restaurant"](around:200,${lat},${lon});
+  node["amenity"="cinema"](around:200,${lat},${lon});
+  node["amenity"="theatre"](around:200,${lat},${lon});
+  node["amenity"="library"](around:200,${lat},${lon});
+  node["amenity"="university"](around:200,${lat},${lon});
+  node["amenity"="college"](around:200,${lat},${lon});
+  node["amenity"="school"](around:200,${lat},${lon});
+  node["amenity"="hospital"](around:200,${lat},${lon});
+  node["shop"](around:200,${lat},${lon});
+  way["building"="retail"](around:200,${lat},${lon});
+  way["building"="commercial"](around:200,${lat},${lon});
+  relation["amenity"="marketplace"](around:200,${lat},${lon});
+  relation["building"="retail"](around:200,${lat},${lon});
+  relation["building"="commercial"](around:200,${lat},${lon});
+  relation["leisure"="park"](around:200,${lat},${lon});
+  relation["leisure"="playground"](around:200,${lat},${lon});
+  relation["highway"="pedestrian"](around:200,${lat},${lon});
+  relation["highway"="footway"](around:200,${lat},${lon});
+  relation["highway"="cycleway"](around:200,${lat},${lon});
+  relation["amenity"="bus_station"](around:200,${lat},${lon});
+  node["public_transport"="station"](around:200,${lat},${lon});
+  node["public_transport"="platform"](around:200,${lat},${lon});
+  node["highway"="bus_stop"](around:200,${lat},${lon});
+);
+out geom;
+`;
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(CONFIG.overpassUrl, {
+            method: 'POST',
+            body: query,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const elements = data.elements || [];
+        // Простой подсчет объектов как признака активности
+        let activityScore = elements.length;
+        let level, risk, desc;
+        if (activityScore > 50) { level = 85; risk = 65; desc = 'Высокая плотность: центральная зона'; }
+        else if (activityScore > 25) { level = 60; risk = 45; desc = 'Средняя плотность: коммерческая зона'; }
+        else if (activityScore > 10) { level = 35; risk = 25; desc = 'Низкая плотность: жилая зона'; }
+        else { level = 15; risk = 15; desc = 'Очень низкая плотность: тихая зона'; }
+        const result = { level, risk, desc, source: 'osm' };
+        setCachedData(cacheKey, result);
+        return result;
+    } catch (e) {
+        console.error("Ошибка получения плотности людей:", e);
+        return {
+            level: 25,
+            risk: 20,
+            desc: 'Данные плотности временно недоступны',
+            source: 'fallback'
+        };
+    }
+}
+
+// --- ОСВЕЩЕННОСТЬ (ИСПРАВЛЕНО: через Overpass API + анализ времени) ---
+async function getLightFromOSM(lat, lon) {
+    const cacheKey = `light:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+        return cached;
+    }
+    const now = new Date();
+    const timeInfo = await getTimeOfDayByLocation(lat, lon);
+    const isDaytime = timeInfo.isDaytime;
+
+    if (isDaytime) {
+        return { level: 95, risk: 10, desc: 'Естественное освещение (день)', source: 'time_calc' };
+    }
+
+    const query = `
+[out:json][timeout:${CONFIG.overpassTimeout}];
+(
+  node["highway"="street_lamp"](around:200,${lat},${lon});
+  node["man_made"="street_lamp"](around:200,${lat},${lon});
+  way["lighting"](around:200,${lat},${lon});
+  node["amenity"="street_light"](around:200,${lat},${lon});
+);
+out count;
+`;
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(CONFIG.overpassUrl, {
+            method: 'POST',
+            body: query,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const count = data.elements?.length || 0;
+        let level, risk, desc;
+        if (count > 15) { level = 75; risk = 25; desc = 'Хорошее уличное освещение'; }
+        else if (count > 5) { level = 50; risk = 45; desc = 'Среднее освещение'; }
+        else { level = 25; risk = 70; desc = 'Слабое освещение'; }
+        const result = { level, risk, desc, source: 'osm' };
+        setCachedData(cacheKey, result);
+        return result;
+    } catch (e) {
+        console.error("Ошибка получения освещенности:", e);
+        return {
+            level: 25,
+            risk: 70,
+            desc: 'Данные освещенности временно недоступны',
+            source: 'fallback'
+        };
+    }
+}
+
+// --- ВРЕМЯ СУТОК ---
+async function getSunriseSunset(lat, lon) {
+    const cacheKey = `sunrise:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) return cached;
+    try {
+        const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=today&formatted=0`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!data.results || !data.results.sunrise) throw new Error('Invalid response format');
+        const result = {
+            sunrise: new Date(data.results.sunrise),
+            sunset: new Date(data.results.sunset),
+            solar_noon: new Date(data.results.solar_noon),
+            civil_twilight_begin: new Date(data.results.civil_twilight_begin),
+            civil_twilight_end: new Date(data.results.civil_twilight_end)
+        };
+        setCachedData(cacheKey, result);
+        return result;
+    } catch (error) {
+        console.error("Ошибка получения восхода/заката:", error);
+        return null;
+    }
+}
+
+async function getTimeOfDayByLocation(lat, lon) {
+    const now = new Date();
+    const sunData = await getSunriseSunset(lat, lon);
+    if (!sunData) {
+        const hour = now.getHours();
+        return {
+            timeOfDay: hour >= 6 && hour < 12 ? 'Утро' : hour >= 12 && hour < 18 ? 'День' : hour >= 18 && hour < 23 ? 'Вечер' : 'Ночь',
+            isDaytime: hour >= 6 && hour < 22,
+            description: 'Локальное время'
+        };
+    }
+    const isDaytime = now >= sunData.sunrise && now < sunData.sunset;
+    let timeOfDay, description;
+    if (now < sunData.sunrise) { timeOfDay = 'Ночь'; description = 'Темно, ограниченная видимость'; }
+    else if (now < new Date(sunData.sunrise.getTime() + 2 * 60 * 60 * 1000)) { timeOfDay = 'Утро'; description = 'Активное движение, хороший обзор'; }
+    else if (now < sunData.sunset) { timeOfDay = 'День'; description = 'Высокая активность, хорошая видимость'; }
+    else if (now < sunData.civil_twilight_end) { timeOfDay = 'Вечер'; description = 'Умеренная видимость, активность снижается'; }
+    else { timeOfDay = 'Ночь'; description = 'Темно, ограниченная видимость'; }
+    return { timeOfDay, isDaytime, description };
+}
+
+// --- РАСЧЕТ РИСКОВ ---
 async function calculateRiskFactors(coords, serverData = null) {
-const [lat, lon] = coords;
-const now = new Date();
-const day = now.getDay();
-const timeInfo = await getTimeOfDayByLocation(lat, lon);
-const timeOfDay = timeInfo.timeOfDay;
-const timeDesc = timeInfo.description;
-let timeRisk;
-if (timeOfDay === 'Глубокая ночь' || timeOfDay === 'Ночь') { timeRisk = 75; }
-else if (timeOfDay === 'Закат' || timeOfDay === 'Вечер') { timeRisk = 60; }
-else if (timeOfDay === 'Утро' || timeOfDay === 'Рассвет') { timeRisk = 30; }
-else { timeRisk = 40; }
-const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-const dayName = dayNames[day];
-let dayRisk, dayDesc;
-if (day === 0 || day === 6) { dayRisk = 35; dayDesc = 'Выходной: меньше транспорта, больше пешеходов'; }
-else if (day === 5) { dayRisk = 70; dayDesc = 'Пятница: вечерние пробки, усталость после недели'; }
-else { dayRisk = 55; dayDesc = 'Будний день: стандартная нагрузка'; }
-const [noiseData, crowdData, lightData, weatherData, trafficData] = await Promise.allSettled([
-getNoiseFromOSM(lat, lon),
-getCrowdFromOSM(lat, lon),
-getLightFromOSM(lat, lon),
-getWeatherFromOpenMeteo(lat, lon),
-getTrafficFromTomTom(lat, lon)
-]);
-let noise = noiseData.status === 'fulfilled' ? noiseData.value : getNoiseFallback(lat, lon);
-let crowd = crowdData.status === 'fulfilled' ? crowdData.value : getCrowdFallback(lat, lon);
-let light = lightData.status === 'fulfilled' ? lightData.value : getLightFallback(lat, lon);
-let weather = weatherData.status === 'fulfilled' ? weatherData.value : null;
-let traffic = trafficData.status === 'fulfilled' ? trafficData.value : getTrafficFallback(lat, lon);
-if (serverData?.risks) {
-const r = serverData.risks;
-if (r.noise) { noise = { ...noise, ...r.noise }; }
-if (r.crowd) { crowd = { ...crowd, ...r.crowd }; }
-if (r.light) { light = { ...light, ...r.light }; }
-if (r.traffic) { traffic = { ...traffic, ...r.traffic }; }
-}
-const trafficRisk = traffic.level * 10;
-const avgRisk = (noise.risk + crowd.risk + light.risk + timeRisk + dayRisk + trafficRisk) / 6;
-const safetyIndex = Math.round(100 - avgRisk);
-return {
-noise, crowd, light,
-time: { value: timeOfDay, risk: timeRisk, desc: timeDesc },
-day: { value: dayName, risk: dayRisk, desc: dayDesc },
-traffic, weather, safetyIndex,
-timestamp: new Date().toLocaleString('ru')
-};
+    const [lat, lon] = coords;
+    const now = new Date();
+    const day = now.getDay();
+    const timeInfo = await getTimeOfDayByLocation(lat, lon);
+    const timeOfDay = timeInfo.timeOfDay;
+    const timeDesc = timeInfo.description;
+    let timeRisk;
+    if (timeOfDay === 'Ночь') { timeRisk = 75; }
+    else if (timeOfDay === 'Вечер') { timeRisk = 60; }
+    else if (timeOfDay === 'Утро') { timeRisk = 30; }
+    else { timeRisk = 40; }
+    const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+    const dayName = dayNames[day];
+    let dayRisk, dayDesc;
+    if (day === 0 || day === 6) { dayRisk = 35; dayDesc = 'Выходной: меньше транспорта, больше пешеходов'; }
+    else if (day === 5) { dayRisk = 70; dayDesc = 'Пятница: вечерние пробки, усталость после недели'; }
+    else { dayRisk = 55; dayDesc = 'Будний день: стандартная нагрузка'; }
+
+    const [noiseData, crowdData, lightData, weatherData, trafficData] = await Promise.allSettled([
+        getNoiseFromMeersens(lat, lon),
+        getCrowdFromOSM(lat, lon),
+        getLightFromOSM(lat, lon),
+        getWeatherFromOpenMeteo(lat, lon),
+        getTrafficFromTomTom(lat, lon)
+    ]);
+
+    // Обработка результатов с учетом fallback
+    let noise = noiseData.status === 'fulfilled' ? noiseData.value : {
+        level: 45, risk: 30, desc: 'Данные шума временно недоступны', source: 'fallback'
+    };
+    let crowd = crowdData.status === 'fulfilled' ? crowdData.value : {
+        level: 25, risk: 20, desc: 'Данные плотности временно недоступны', source: 'fallback'
+    };
+    let light = lightData.status === 'fulfilled' ? lightData.value : {
+        level: 25, risk: 70, desc: 'Данные освещенности временно недоступны', source: 'fallback'
+    };
+    let weather = weatherData.status === 'fulfilled' ? weatherData.value : {
+        temp: 0, condition: 'Недоступно', wind: '—', humidity: 0
+    };
+    let traffic = trafficData.status === 'fulfilled' ? trafficData.value : {
+        level: 5, status: 'Данные недоступны', speed_avg: '--'
+    };
+
+    // Объединение с серверными данными (если есть)
+    if (serverData?.risks) {
+        const r = serverData.risks;
+        if (r.noise) { noise = { ...noise, ...r.noise }; }
+        if (r.crowd) { crowd = { ...crowd, ...r.crowd }; }
+        if (r.light) { light = { ...light, ...r.light }; }
+        if (r.traffic) { traffic = { ...traffic, ...r.traffic }; }
+    }
+
+    const trafficRisk = traffic.level * 10;
+    const avgRisk = (noise.risk + crowd.risk + light.risk + timeRisk + dayRisk + trafficRisk) / 6;
+    const safetyIndex = Math.round(100 - avgRisk);
+
+    return {
+        noise, crowd, light,
+        time: { value: timeOfDay, risk: timeRisk, desc: timeDesc },
+        day: { value: dayName, risk: dayRisk, desc: dayDesc },
+        traffic, weather, safetyIndex,
+        timestamp: new Date().toLocaleString('ru')
+    };
 }
 
 function getRiskClass(risk) {
-if (risk < 40) return 'risk-low';
-if (risk < 70) return 'risk-medium';
-return 'risk-high';
+    if (risk < 40) return 'risk-low';
+    if (risk < 70) return 'risk-medium';
+    return 'risk-high';
 }
 
 function getSafetyColor(index) {
-if (index >= 70) return '#27ae60';
-if (index >= 40) return '#f39c12';
-return '#e74c3c';
+    if (index >= 70) return '#27ae60';
+    if (index >= 40) return '#f39c12';
+    return '#e74c3c';
 }
 
 function getSafetyLabel(index) {
-if (index >= 80) return '🟢 Очень безопасно';
-if (index >= 60) return '🟡 Безопасно';
-if (index >= 40) return '🟠 Умеренный риск';
-if (index >= 20) return '🔴 Повышенный риск';
-return '⚫ Высокий риск';
+    if (index >= 80) return '🟢 Очень безопасно';
+    if (index >= 60) return '🟡 Безопасно';
+    if (index >= 40) return '🟠 Умеренный риск';
+    if (index >= 20) return '🔴 Повышенный риск';
+    return '⚫ Высокий риск';
 }
 
+// --- ИНИЦИАЛИЗАЦИЯ КАРТЫ ---
 ymaps.ready(init);
 
 function init() {
-try {
-map = new ymaps.Map('map', {
-center: CONFIG.defaultCoords,
-zoom: 13,
-controls: ['zoomControl', 'fullscreenControl', 'geolocationControl']
-});
-try {
-new ymaps.layer.TrafficLayer({ trafficProvider: 'yandex#actual' }).setMap(map);
-} catch(e) {}
-createPlacemark(CONFIG.defaultCoords);
-mapInitialized = true;
-map.events.add('click', function(e) {
-const coords = e.get('coords');
-movePlacemark(coords, true);
-});
-checkServer();
-requestWeatherData(CONFIG.defaultCoords, true);
-document.getElementById('btn-force-refresh').addEventListener('click', forceRefresh);
-document.getElementById('btn-save').addEventListener('click', saveCurrentPoint);
-} catch (error) {
-showMapError(error);
-}
+    try {
+        map = new ymaps.Map('map', {
+            center: CONFIG.defaultCoords,
+            zoom: 13,
+            controls: ['zoomControl', 'fullscreenControl', 'geolocationControl']
+        });
+        // Пробки Яндекса
+        try {
+            new ymaps.layer.TrafficLayer({ trafficProvider: 'yandex#actual' }).setMap(map);
+        } catch(e) { console.warn("Пробки Яндекса недоступны:", e); }
+
+        createPlacemark(CONFIG.defaultCoords);
+        mapInitialized = true;
+        map.events.add('click', function(e) {
+            const coords = e.get('coords');
+            movePlacemark(coords, true);
+        });
+        checkServer();
+        requestWeatherData(CONFIG.defaultCoords, true);
+        document.getElementById('btn-force-refresh').addEventListener('click', forceRefresh);
+        document.getElementById('btn-save').addEventListener('click', saveCurrentPoint);
+    } catch (error) {
+        showMapError(error);
+    }
 }
 
 function showMapError(error) {
-const errorEl = document.getElementById('map-error');
-errorEl.classList.add('visible');
+    const errorEl = document.getElementById('map-error');
+    errorEl.classList.add('visible');
 }
 
 function createPlacemark(coords) {
-if (placemark) map.geoObjects.remove(placemark);
-placemark = new ymaps.Placemark(coords, {
-hintContent: '🎯 Перетащите для анализа рисков',
-balloonContentHeader: 'Выбранная точка',
-balloonContentBody: 'Факторы риска обновляются автоматически'
-}, {
-preset: 'islands#redStretchyIcon',
-draggable: true,
-iconColor: '#e74c3c'
-});
-placemark.events.add('dragstart', () => {
-isDragging = true;
-});
-placemark.events.add('drag', (e) => {
-const coords = placemark.geometry.getCoordinates();
-updateCoordsDisplay(coords);
-currentCoords = coords;
-throttledRequest(coords);
-});
-placemark.events.add('dragend', () => {
-isDragging = false;
-const coords = placemark.geometry.getCoordinates();
-requestWeatherData(coords, true);
-});
-map.geoObjects.add(placemark);
+    if (placemark) map.geoObjects.remove(placemark);
+    placemark = new ymaps.Placemark(coords, {
+        hintContent: '🎯 Перетащите для анализа рисков',
+        balloonContentHeader: 'Выбранная точка',
+        balloonContentBody: 'Факторы риска обновляются автоматически'
+    }, {
+        preset: 'islands#redStretchyIcon',
+        draggable: true,
+        iconColor: '#e74c3c'
+    });
+    placemark.events.add('dragstart', () => { isDragging = true; });
+    placemark.events.add('drag', (e) => {
+        const coords = placemark.geometry.getCoordinates();
+        updateCoordsDisplay(coords);
+        currentCoords = coords;
+        throttledRequest(coords);
+    });
+    placemark.events.add('dragend', () => {
+        isDragging = false;
+        const coords = placemark.geometry.getCoordinates();
+        requestWeatherData(coords, true);
+    });
+    map.geoObjects.add(placemark);
 }
 
 function movePlacemark(coords, forceUpdate = false) {
-if (placemark) {
-placemark.geometry.setCoordinates(coords);
-} else {
-createPlacemark(coords);
-return;
-}
-map.panTo(coords, { duration: 250, flying: true });
-updateCoordsDisplay(coords);
-currentCoords = coords;
-if (forceUpdate) {
-requestWeatherData(coords, true);
-} else {
-throttledRequest(coords);
-}
+    if (placemark) {
+        placemark.geometry.setCoordinates(coords);
+    } else {
+        createPlacemark(coords);
+        return;
+    }
+    map.panTo(coords, { duration: 250, flying: true });
+    updateCoordsDisplay(coords);
+    currentCoords = coords;
+    if (forceUpdate) {
+        requestWeatherData(coords, true);
+    } else {
+        throttledRequest(coords);
+    }
 }
 
 function updateCoordsDisplay(coords) {
-document.getElementById('coords-display').textContent =
-`Координаты: ${formatCoord(coords[0])}, ${formatCoord(coords[1])}`;
+    document.getElementById('coords-display').textContent =
+        `Координаты: ${formatCoord(coords[0])}, ${formatCoord(coords[1])}`;
 }
 
 const throttledRequest = throttle(
-(coords) => requestWeatherData(coords, false),
-CONFIG.throttleMs,
-'DRAG'
+    (coords) => requestWeatherData(coords, false),
+    CONFIG.throttleMs,
+    'DRAG'
 );
 
+// --- ОСНОВНОЙ ЗАПРОС ДАННЫХ ---
 async function requestWeatherData(coords, force = false) {
-requestCounter++;
-if (!force && lastRequestCoords &&
-Math.abs(coords[0] - lastRequestCoords[0]) < 0.0001 &&
-Math.abs(coords[1] - lastRequestCoords[1]) < 0.0001) {
-return;
-}
-showLoader(true);
-try {
-const timestamp = Date.now();
-const response = await fetch(`${CONFIG.apiBase}/analyze?t=${timestamp}`, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-body: JSON.stringify({ lat: coords[0], lon: coords[1], timestamp: timestamp }),
-timeout: 5000
-});
-let data;
-if (response.ok) {
-data = await response.json();
-} else {
-data = { now: {} };
-}
-const risks = await calculateRiskFactors(coords, data);
-data.risks = risks;
-renderData(data, coords);
-updateStatus('ok');
-} catch (err) {
-const risks = await calculateRiskFactors(coords, { now: {} });
-renderData({ now: {}, risks }, coords);
-updateStatus('warning', 'API данные');
-} finally {
-showLoader(false);
-}
+    requestCounter++;
+    if (!force && lastRequestCoords &&
+        Math.abs(coords[0] - lastRequestCoords[0]) < 0.0001 &&
+        Math.abs(coords[1] - lastRequestCoords[1]) < 0.0001) {
+        return;
+    }
+    showLoader(true);
+    try {
+        // Получаем данные с сервера (если он доступен)
+        let serverData = { now: {} };
+        try {
+            const timestamp = Date.now();
+            const response = await fetch(`${CONFIG.apiBase}/analyze?t=${timestamp}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+                body: JSON.stringify({ lat: coords[0], lon: coords[1], timestamp: timestamp }),
+                timeout: 5000
+            });
+            if (response.ok) {
+                serverData = await response.json();
+            }
+        } catch (err) {
+            console.info("Сервер недоступен, используем только API:", err);
+        }
+
+        // Рассчитываем риски (серверные данные будут объединены)
+        const risks = await calculateRiskFactors(coords, serverData);
+        serverData.risks = risks;
+        renderData(serverData, coords);
+        updateStatus('ok');
+    } catch (err) {
+        console.error("Ошибка основного запроса:", err);
+        // Всё равно рассчитываем и отображаем, даже если были ошибки
+        const risks = await calculateRiskFactors(coords, { now: {} });
+        renderData({ now: {}, risks }, coords);
+        updateStatus('warning', 'Данные частично недоступны');
+    } finally {
+        showLoader(false);
+    }
 }
 
 function forceRefresh() {
-apiCache.clear();
-requestWeatherData(currentCoords, true);
+    apiCache.clear();
+    requestWeatherData(currentCoords, true);
 }
 
 function renderData(data, coords) {
-const w = data?.risks?.weather || data?.now?.weather || {};
-const risks = data?.risks;
-const safetyIndex = risks?.safetyIndex || 0;
-const safetyEl = document.getElementById('safety-index-value');
-const safetyLabel = document.getElementById('safety-index-label');
-const safetyCard = document.getElementById('safety-index-card');
-safetyEl.textContent = safetyIndex;
-safetyEl.style.color = 'white';
-const safetyColor = getSafetyColor(safetyIndex);
-let darkColor;
-if (safetyIndex >= 70) { darkColor = '#1e8449'; }
-else if (safetyIndex >= 40) { darkColor = '#d35400'; }
-else { darkColor = '#c0392b'; }
-safetyLabel.textContent = getSafetyLabel(safetyIndex);
-safetyCard.style.background = `linear-gradient(135deg, ${safetyColor} 0%, ${darkColor} 100%)`;
-safetyCard.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.15)';
+    const w = data?.risks?.weather || data?.now?.weather || {};
+    const risks = data?.risks;
+    const safetyIndex = risks?.safetyIndex || 0;
+    const safetyEl = document.getElementById('safety-index-value');
+    const safetyLabel = document.getElementById('safety-index-label');
+    const safetyCard = document.getElementById('safety-index-card');
 
-updateRiskItem('noise', risks?.noise?.level, risks?.noise?.risk, risks?.noise?.desc);
-updateRiskItem('crowd', risks?.crowd?.level, risks?.crowd?.risk, risks?.crowd?.desc);
-updateRiskItem('light', risks?.light?.level, risks?.light?.risk, risks?.light?.desc);
-updateRiskItem('time', null, risks?.time?.risk, risks?.time?.desc, risks?.time?.value);
-updateRiskItem('day', null, risks?.day?.risk, risks?.day?.desc, risks?.day?.value);
+    safetyEl.textContent = safetyIndex;
+    safetyEl.style.color = 'white';
+    const safetyColor = getSafetyColor(safetyIndex);
+    let darkColor;
+    if (safetyIndex >= 70) { darkColor = '#1e8449'; }
+    else if (safetyIndex >= 40) { darkColor = '#d35400'; }
+    else { darkColor = '#c0392b'; }
+    safetyLabel.textContent = getSafetyLabel(safetyIndex);
+    safetyCard.style.background = `linear-gradient(135deg, ${safetyColor} 0%, ${darkColor} 100%)`;
+    safetyCard.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.15)';
 
-const tempEl = document.getElementById('w-temp');
-const condEl = document.getElementById('w-cond');
-const windEl = document.getElementById('w-wind');
-const humEl = document.getElementById('w-hum');
-if (tempEl) tempEl.textContent = w.temp != null ? `${w.temp}°C` : '—';
-if (condEl) condEl.textContent = w.condition || '—';
-if (windEl) windEl.textContent = w.wind || '—';
-if (humEl) humEl.textContent = w.humidity != null ? `${w.humidity}%` : '—';
+    updateRiskItem('noise', risks?.noise?.level, risks?.noise?.risk, risks?.noise?.desc);
+    updateRiskItem('crowd', risks?.crowd?.level, risks?.crowd?.risk, risks?.crowd?.desc);
+    updateRiskItem('light', risks?.light?.level, risks?.light?.risk, risks?.light?.desc);
+    updateRiskItem('time', null, risks?.time?.risk, risks?.time?.desc, risks?.time?.value);
+    updateRiskItem('day', null, risks?.day?.risk, risks?.day?.desc, risks?.day?.value);
 
-const t = risks?.traffic || { level: 5, status: 'Умеренная загруженность', speed_avg: '25 км/ч' };
-const levelEl = document.getElementById('t-level');
-const speedEl = document.getElementById('t-speed');
-const statusEl = document.getElementById('t-status');
-const level = t.level ?? '—';
-const status = t.status || '—';
-const speed = t.speed_avg || '—';
-if (levelEl) levelEl.textContent = level !== '—' ? `${level}/10` : '—';
-if (speedEl) speedEl.textContent = speed;
-if (statusEl) {
-statusEl.textContent = status;
-statusEl.className = 'data-value ' + (level !== '—' ? getTrafficClass(level) : '');
-}
-document.getElementById('btn-save').style.display = 'inline-block';
+    // Погода
+    const tempEl = document.getElementById('w-temp');
+    const condEl = document.getElementById('w-cond');
+    const windEl = document.getElementById('w-wind');
+    const humEl = document.getElementById('w-hum');
+    if (tempEl) tempEl.textContent = w.temp != null ? `${w.temp}°C` : '—';
+    if (condEl) condEl.textContent = w.condition || '—';
+    if (windEl) windEl.textContent = w.wind || '—';
+    if (humEl) humEl.textContent = w.humidity != null ? `${w.humidity}%` : '—';
+
+    // Пробки
+    const t = risks?.traffic || { level: 5, status: 'Данные недоступны', speed_avg: '--' };
+    const levelEl = document.getElementById('t-level');
+    const speedEl = document.getElementById('t-speed');
+    const statusEl = document.getElementById('t-status');
+    const level = t.level ?? '—';
+    const status = t.status || '—';
+    const speed = t.speed_avg || '—';
+    if (levelEl) levelEl.textContent = level !== '—' ? `${level}/10` : '—';
+    if (speedEl) speedEl.textContent = speed;
+    if (statusEl) {
+        statusEl.textContent = status;
+        statusEl.className = 'data-value ' + (level !== '—' ? getTrafficClass(level) : 'traffic-low');
+    }
+
+    document.getElementById('btn-save').style.display = 'inline-block';
 }
 
 function updateRiskItem(type, level, risk, desc, valueOverride = null) {
-const bar = document.getElementById(`${type}-bar`);
-const value = document.getElementById(`${type}-value`);
-const description = document.getElementById(`${type}-desc`);
-if (!bar || !value) return;
-const riskClass = getRiskClass(risk);
-bar.className = `risk-fill ${riskClass}`;
-setTimeout(() => { bar.style.width = `${risk}%`; }, 100);
-if (valueOverride !== null) {
-value.textContent = valueOverride;
-} else if (level !== null) {
-value.textContent = `${level}%`;
-} else {
-value.textContent = `${risk}%`;
-}
-if (description) description.textContent = desc;
+    const bar = document.getElementById(`${type}-bar`);
+    const value = document.getElementById(`${type}-value`);
+    const description = document.getElementById(`${type}-desc`);
+    if (!bar || !value) return;
+    const riskClass = getRiskClass(risk);
+    bar.className = `risk-fill ${riskClass}`;
+    setTimeout(() => { bar.style.width = `${risk}%`; }, 100);
+    if (valueOverride !== null) {
+        value.textContent = valueOverride;
+    } else if (level !== null) {
+        value.textContent = `${level}%`;
+    } else {
+        value.textContent = `${risk}%`;
+    }
+    if (description) description.textContent = desc;
 }
 
 function showLoader(show) {
-const loader = document.getElementById('loader');
-const content = document.getElementById('content');
-loader.classList.toggle('active', show);
-content.style.opacity = show ? '0.7' : '1';
-content.style.pointerEvents = show ? 'none' : 'auto';
+    const loader = document.getElementById('loader');
+    const content = document.getElementById('content');
+    loader.classList.toggle('active', show);
+    content.style.opacity = show ? '0.7' : '1';
+    content.style.pointerEvents = show ? 'none' : 'auto';
 }
 
 function updateStatus(state, text = '') {
-const dot = document.getElementById('server-dot');
-const txt = document.getElementById('server-text');
-dot.className = 'status-dot ' + (state === 'ok' ? 'status-good' : state === 'error' ? 'status-error' : 'status-warning');
-txt.textContent = text || (state === 'ok' ? 'Онлайн' : state === 'error' ? 'Ошибка' : 'Подключение...');
+    const dot = document.getElementById('server-dot');
+    const txt = document.getElementById('server-text');
+    dot.className = 'status-dot ' + (state === 'ok' ? 'status-good' : state === 'error' ? 'status-error' : 'status-warning');
+    txt.textContent = text || (state === 'ok' ? 'Онлайн' : state === 'error' ? 'Ошибка' : 'Подключение...');
 }
 
 function saveCurrentPoint() {
-const name = prompt('📌 Название точки:', `Точка #${savedPoints.length + 1}`);
-if (!name?.trim()) return;
-const point = {
-id: Date.now(),
-name: name.trim(),
-coords: [...currentCoords],
-data: null,
-created: new Date().toISOString(),
-updated: null
-};
-savedPoints.unshift(point);
-savePointsToStorage();
-alert('✅ Точка сохранена!');
+    const name = prompt('📌 Название точки:', `Точка #${savedPoints.length + 1}`);
+    if (!name?.trim()) return;
+    const point = {
+        id: Date.now(),
+        name: name.trim(),
+        coords: [...currentCoords],
+        data: null,
+        created: new Date().toISOString(),
+        updated: null
+    };
+    savedPoints.unshift(point);
+    savePointsToStorage();
+    alert('✅ Точка сохранена!');
 }
 
 function savePointsToStorage() {
-try { localStorage.setItem('smartKazanPoints', JSON.stringify(savedPoints)); }
-catch(e) {}
+    try { localStorage.setItem('smartKazanPoints', JSON.stringify(savedPoints)); }
+    catch(e) {}
 }
 
 async function checkServer() {
-try {
-const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 3000);
-const r = await fetch(`${CONFIG.apiBase}/health`, { signal: controller.signal });
-clearTimeout(timeoutId);
-if (r.ok) updateStatus('ok', 'Онлайн');
-else throw new Error('HTTP ' + r.status);
-} catch {
-updateStatus('warning', 'API данные');
-}
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const r = await fetch(`${CONFIG.apiBase}/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (r.ok) updateStatus('ok', 'Сервер: Онлайн');
+        else throw new Error('HTTP ' + r.status);
+    } catch {
+        updateStatus('warning', 'Сервер: Недоступен');
+    }
 }
 
 setInterval(checkServer, 30000);
+
 setTimeout(() => {
-if (!mapInitialized) {
-showMapError(new Error('Timeout'));
-}
+    if (!mapInitialized) {
+        showMapError(new Error('Timeout'));
+    }
 }, 5000);
+
 </script>
 </body>
 </html>
