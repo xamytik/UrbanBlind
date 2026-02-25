@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UrbanBlind - Анализ рисков и безопасности (Исправленный)</title>
+<title>UrbanBlind - Анализ рисков и безопасности</title>
 <style>
-/* Стили остались без изменений */
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 :root {
 --glass-bg: rgba(255, 255, 255, 0.85);
@@ -140,6 +139,10 @@ transition: all 0.3s ease; position: relative; overflow: hidden;
 .btn-refresh { padding: 5px 10px; background: var(--accent-purple); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 8px; transition: all 0.2s ease; }
 .btn-refresh:hover { background: #8e44ad; transform: scale(1.05); }
 footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-border); font-size: 11px; color: var(--text-muted); text-align: center; }
+.demo-mode-badge {
+    background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; 
+    font-size: 10px; font-weight: bold; margin-left: auto; border: 1px solid #ffeeba;
+}
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
@@ -183,6 +186,7 @@ body { flex-direction: column; }
 <div class="api-status">
 <span class="status-dot status-good" id="server-dot"></span>
 <span id="server-text">Подключение...</span>
+<span id="demo-badge" class="demo-mode-badge" style="display:none;">🧪 Демо-режим</span>
 <button id="btn-force-refresh" class="btn-refresh" title="Принудительно обновить">🔄</button>
 </div>
 </div>
@@ -257,6 +261,7 @@ body { flex-direction: column; }
 <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="day-desc">Данные загружаются...</div>
 </div>
 </div>
+</div>
 <div class="card">
 <div class="card-title"><span class="icon">🌤️</span>Погода</div>
 <div class="data-row"><span class="data-label">Температура:</span><span class="data-value" id="w-temp">—</span></div>
@@ -272,17 +277,17 @@ body { flex-direction: column; }
 </div>
 </div>
 <footer>
-<p>UrbanBlind © 2026 | Yandex Maps • OpenStreetMap • Open-Meteo • TomTom</p>
+<p>UrbanBlind © 2026 | Yandex Maps • OpenStreetMap • Open-Meteo • TomTom • Meersens</p>
 <p style="font-size:10px;margin-top:5px;color:var(--text-muted)">Хакатон «Умный город» — Анализ факторов риска</p>
 </footer>
 </div>
 <script src="https://api-maps.yandex.ru/2.1/?apikey=c2763cd1-5a14-4131-842c-2bbd60932c52&lang=ru_RU" type="text/javascript"></script>
 <script>
-// --- НАСТРОЙКИ ---
+// --- НАСТРОЙКИ С РЕАЛЬНЫМИ КЛЮЧАМИ ---
 const CONFIG = {
     throttleMs: 600,
     minDragDistance: 0.001,
-    apiBase: 'http://127.0.0.1:5000/api', // Для обратной совместимости
+    apiBase: 'http://127.0.0.1:5000/api',
     defaultCoords: [55.7961, 49.1064],
     debugMode: false,
     overpassUrl: 'https://overpass-api.de/api/interpreter',
@@ -290,11 +295,11 @@ const CONFIG = {
     sunriseUrl: 'https://api.sunrise-sunset.org/json',
     overpassTimeout: 25,
     cacheDuration: 300000,
-    // --- НОВЫЕ КЛЮЧИ ---
-    meersensApiKey: 'YOUR_MEERSENS_API_KEY', // <- ЗАМЕНИТЕ НА СВОЙ
-    meersensBaseUrl: 'https://api.meersens.com/environment/public/noise/current',
-    tomTomApiKey: 'YOUR_TOMTOM_API_KEY', // <- ЗАМЕНИТЕ НА СВОЙ
-    tomTomBaseUrl: 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/11/json'
+    // ✅ РЕАЛЬНЫЕ API КЛЮЧИ
+    meersensApiKey: '0N2Odysx0NER8r240yxEY5DvbdC900HU',
+    meersensBaseUrl: 'https://api.meersens.com/environment/public/noise/v1',
+    tomTomApiKey: 'yq5C1dZiEviylLPM4Z2ZSh9wzuACsoQZ',
+    tomTomBaseUrl: 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json'
 };
 
 // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
@@ -309,8 +314,9 @@ let activePointId = null;
 let requestCounter = 0;
 let mapInitialized = false;
 let apiCache = new Map();
+let demoMode = false;
 
-// --- ФУНКЦИИ ---
+// --- УТИЛИТЫ ---
 function throttle(func, limitMs, label = '') {
     return function(...args) {
         const now = Date.now();
@@ -357,44 +363,32 @@ function setCachedData(key, data) {
     apiCache.set(key, { data, time: Date.now() });
 }
 
-// --- ПОГОДА (ИСПРАВЛЕНО) ---
+// --- ПОГОДА (Open-Meteo) ---
 async function getWeatherFromOpenMeteo(lat, lon) {
     const cacheKey = `weather:${lat.toFixed(2)},${lon.toFixed(2)}`;
     const cached = getCachedData(cacheKey);
-    if (cached) {
-        return cached;
-    }
+    if (cached) return cached;
+
     try {
-        const url = `${CONFIG.openMeteoUrl}?` +
-            `latitude=${lat}&` +
-            `longitude=${lon}&` +
-            `current_weather=true&` +
-            `hourly=relative_humidity_2m&` +
-            `timezone=auto&` +
-            `forecast_days=1`;
+        const url = `${CONFIG.openMeteoUrl}?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relative_humidity_2m&timezone=auto&forecast_days=1`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            signal: controller.signal
-        });
+        const response = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
+        
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        if (!data.current_weather) throw new Error('Нет данных о текущей погоде');
-
+        
+        if (!data.current_weather) throw new Error('Нет данных о погоде');
+        
         let humidity = 0;
-        if (data.hourly && data.hourly.time && data.hourly.relative_humidity_2m) {
+        if (data.hourly?.time?.length) {
             const now = new Date();
-            const currentHourStr = now.toISOString().slice(0, 13);
-            const index = data.hourly.time.findIndex(t => t.startsWith(currentHourStr));
-            if (index !== -1 && data.hourly.relative_humidity_2m[index] !== undefined) {
-                humidity = data.hourly.relative_humidity_2m[index];
-            } else {
-                humidity = data.hourly.relative_humidity_2m[0] || 0;
-            }
+            const currentHour = now.getHours();
+            const index = data.hourly.time.findIndex(t => new Date(t).getHours() === currentHour);
+            humidity = index !== -1 ? data.hourly.relative_humidity_2m[index] : data.hourly.relative_humidity_2m[0] || 0;
         }
+
         const weather = {
             temp: data.current_weather.temperature ?? 0,
             wind: `${data.current_weather.windspeed ?? 0} м/с`,
@@ -406,35 +400,29 @@ async function getWeatherFromOpenMeteo(lat, lon) {
         setCachedData(cacheKey, weather);
         return weather;
     } catch (error) {
-        console.error("Ошибка получения погоды:", error);
-        return {
-            temp: 0, wind: '—', windDirection: '—', humidity: 0,
-            condition: 'Недоступно', weatherCode: null, error: error.message
-        };
+        console.error("Ошибка погоды:", error);
+        return { temp: 0, wind: '—', humidity: 0, condition: 'Недоступно', error: error.message };
     }
 }
 
 function getWindDirection(degrees) {
     if (degrees === undefined || degrees === null) return '—';
     const directions = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ'];
-    const index = Math.round(degrees / 45) % 8;
-    return directions[index];
+    return directions[Math.round(degrees / 45) % 8];
 }
 
 function getWeatherCondition(code) {
     const conditions = {
         0: '☀️ Ясно', 1: '🌤️ Преимущественно ясно', 2: '⛅ Переменная облачность',
         3: '☁️ Пасмурно', 45: '🌫️ Туман', 48: '❄️ Иней',
-        51: '💧 Морось', 53: '💧 Морось', 55: '💧 Морось',
-        61: '🌧️ Дождь', 63: '🌧️ Дождь', 65: '🌧️ Сильный дождь',
+        51: '💧 Морось', 61: '🌧️ Дождь', 63: '🌧️ Дождь', 65: '🌧️ Сильный дождь',
         71: '❄️ Снег', 73: '❄️ Снег', 75: '❄️ Сильный снег',
-        80: '🌦️ Ливень', 81: '🌦️ Ливень', 82: '🌦️ Сильный ливень',
-        95: '⛈️ Гроза', 96: '⛈️ Гроза с градом', 99: '⛈️ Сильная гроза с градом'
+        95: '⛈️ Гроза', 96: '⛈️ Гроза с градом'
     };
     return conditions[code] || '❓ Неизвестно';
 }
 
-// --- ПРОБКИ (ИСПРАВЛЕНО) ---
+// --- ПРОБКИ (TomTom) ---
 async function getTrafficFromTomTom(lat, lon) {
     const cacheKey = `tomtom:${lat.toFixed(4)},${lon.toFixed(4)}`;
     const cached = getCachedData(cacheKey);
@@ -444,24 +432,24 @@ async function getTrafficFromTomTom(lat, lon) {
         const url = `${CONFIG.tomTomBaseUrl}/${CONFIG.tomTomApiKey}?point=${lat},${lon}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const response = await fetch(url, {
-            headers: { 'Accept': 'application/json' },
-            signal: controller.signal
-        });
+        const response = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
+
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        if (!data.flowSegmentData || !data.flowSegmentData.currentSpeed) {
-            throw new Error('Invalid response format');
-        }
+
+        if (!data.flowSegmentData) throw new Error('Invalid response');
+
         const { currentSpeed, freeFlowSpeed, roadClosure } = data.flowSegmentData;
         let trafficLevel = 0;
+
         if (roadClosure) {
             trafficLevel = 10;
         } else if (freeFlowSpeed > 0) {
             const speedRatio = currentSpeed / freeFlowSpeed;
             trafficLevel = Math.min(10, Math.round((1 - speedRatio) * 10));
         }
+
         let status, speedAvg;
         if (roadClosure) {
             status = 'Дорога закрыта';
@@ -476,35 +464,30 @@ async function getTrafficFromTomTom(lat, lon) {
             status = 'Низкая загруженность';
             speedAvg = `${Math.min(50, currentSpeed)} км/ч`;
         }
-        const trafficData = {
-            level: trafficLevel,
-            status: status,
-            speed_avg: speedAvg,
-            current_speed: currentSpeed,
-            free_flow_speed: freeFlowSpeed,
-            road_closure: roadClosure
-        };
+
+        const trafficData = { level: trafficLevel, status, speed_avg: speedAvg, current_speed: currentSpeed };
         setCachedData(cacheKey, trafficData);
         return trafficData;
     } catch (error) {
-        console.error("Ошибка получения пробок:", error);
-        // Fallback в случае ошибки API
+        console.error("Ошибка пробок:", error);
+        demoMode = true;
+        updateDemoBadge();
+        // Fallback с демо-данными
         return {
-            level: 5,
-            status: 'Данные недоступны',
-            speed_avg: '--'
+            level: Math.floor(Math.random() * 6) + 2,
+            status: 'Демо-данные (API недоступен)',
+            speed_avg: `${Math.floor(Math.random() * 30) + 20} км/ч`,
+            isDemo: true
         };
     }
 }
 
-// --- ШУМ (ИСПРАВЛЕНО: теперь через API Meersens) ---
+// --- ШУМ (Meersens) ---
 async function getNoiseFromMeersens(lat, lon) {
     const cacheKey = `meersens:${lat.toFixed(4)},${lon.toFixed(4)}`;
     const cached = getCachedData(cacheKey);
-    if (cached) {
-        cached.source = 'meersens-cached';
-        return cached;
-    }
+    if (cached) return cached;
+
     try {
         const url = `${CONFIG.meersensBaseUrl}?lat=${lat}&lng=${lon}`;
         const controller = new AbortController();
@@ -514,172 +497,143 @@ async function getNoiseFromMeersens(lat, lon) {
             signal: controller.signal
         });
         clearTimeout(timeoutId);
+
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        let noiseLevel = null;
-        if (data.noise) {
-            noiseLevel = data.noise.Lden || data.noise.Lday || data.noise.Lnight || data.noise.average;
-        }
+
+        let noiseLevel = data?.noise?.Lden || data?.noise?.Lday || data?.noise?.average || null;
+
         if (noiseLevel !== null && noiseLevel !== undefined) {
             const risk = Math.min(100, Math.max(0, ((noiseLevel - 30) / 55) * 100));
             const result = {
                 level: Math.round(noiseLevel),
                 risk: Math.round(risk),
                 desc: getNoiseDescription(noiseLevel),
-                source: 'meersens',
-                data: data
+                source: 'meersens'
             };
             setCachedData(cacheKey, result);
             return result;
         } else {
-            throw new Error('No noise data in response');
+            throw new Error('No noise data');
         }
     } catch (error) {
-        console.error("Ошибка получения шума:", error);
-        // Fallback если API не работает
+        console.error("Ошибка шума:", error);
+        demoMode = true;
+        updateDemoBadge();
+        // Fallback с демо-данными
+        const demoLevel = Math.floor(Math.random() * 40) + 40;
         return {
-            level: 45,
-            risk: 30,
-            desc: 'Данные шума временно недоступны',
-            source: 'fallback'
+            level: demoLevel,
+            risk: Math.floor(Math.random() * 50) + 20,
+            desc: 'Демо-данные (API недоступен)',
+            source: 'fallback',
+            isDemo: true
         };
     }
 }
 
 function getNoiseDescription(db) {
-    if (db < 45) return 'Тихо: спокойная зона, низкий риск для слуха';
-    if (db < 55) return 'Умеренный шум: жилая зона, комфортно';
-    if (db < 65) return 'Заметный шум: оживлённая улица, возможна усталость';
-    if (db < 75) return 'Шумно: транспортная магистраль, риск при длительном воздействии';
-    return 'Очень шумно: зона высокого риска, рекомендуется защита слуха';
+    if (db < 45) return 'Тихо: спокойная зона';
+    if (db < 55) return 'Умеренный шум: жилая зона';
+    if (db < 65) return 'Заметный шум: оживлённая улица';
+    if (db < 75) return 'Шумно: транспортная магистраль';
+    return 'Очень шумно: зона высокого риска';
 }
 
-// --- ПЛОТНОСТЬ ЛЮДЕЙ (ИСПРАВЛЕНО: теперь через Overpass API) ---
+// --- ПЛОТНОСТЬ ЛЮДЕЙ (Overpass API) ---
 async function getCrowdFromOSM(lat, lon) {
     const cacheKey = `crowd:${lat.toFixed(4)},${lon.toFixed(4)}`;
     const cached = getCachedData(cacheKey);
-    if (cached) {
-        return cached;
-    }
-    const query = `
-[out:json][timeout:${CONFIG.overpassTimeout}];
-(
-  node["amenity"="cafe"](around:200,${lat},${lon});
-  node["amenity"="bar"](around:200,${lat},${lon});
-  node["amenity"="pub"](around:200,${lat},${lon});
-  node["amenity"="fast_food"](around:200,${lat},${lon});
-  node["amenity"="restaurant"](around:200,${lat},${lon});
-  node["amenity"="cinema"](around:200,${lat},${lon});
-  node["amenity"="theatre"](around:200,${lat},${lon});
-  node["amenity"="library"](around:200,${lat},${lon});
-  node["amenity"="university"](around:200,${lat},${lon});
-  node["amenity"="college"](around:200,${lat},${lon});
-  node["amenity"="school"](around:200,${lat},${lon});
-  node["amenity"="hospital"](around:200,${lat},${lon});
-  node["shop"](around:200,${lat},${lon});
-  way["building"="retail"](around:200,${lat},${lon});
-  way["building"="commercial"](around:200,${lat},${lon});
-  relation["amenity"="marketplace"](around:200,${lat},${lon});
-  relation["building"="retail"](around:200,${lat},${lon});
-  relation["building"="commercial"](around:200,${lat},${lon});
-  relation["leisure"="park"](around:200,${lat},${lon});
-  relation["leisure"="playground"](around:200,${lat},${lon});
-  relation["highway"="pedestrian"](around:200,${lat},${lon});
-  relation["highway"="footway"](around:200,${lat},${lon});
-  relation["highway"="cycleway"](around:200,${lat},${lon});
-  relation["amenity"="bus_station"](around:200,${lat},${lon});
-  node["public_transport"="station"](around:200,${lat},${lon});
-  node["public_transport"="platform"](around:200,${lat},${lon});
-  node["highway"="bus_stop"](around:200,${lat},${lon});
-);
-out geom;
-`;
+    if (cached) return cached;
+
+    const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["amenity"="cafe"](around:200,${lat},${lon});node["amenity"="restaurant"](around:200,${lat},${lon});node["amenity"="bar"](around:200,${lat},${lon});node["shop"](around:200,${lat},${lon});node["highway"="bus_stop"](around:200,${lat},${lon}););out count;`;
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
+        // ✅ ИСПРАВЛЕНО: правильный формат POST запроса
         const response = await fetch(CONFIG.overpassUrl, {
             method: 'POST',
-            body: query,
+            body: `data=${encodeURIComponent(query)}`,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             signal: controller.signal
         });
         clearTimeout(timeoutId);
+
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        const elements = data.elements || [];
-        // Простой подсчет объектов как признака активности
-        let activityScore = elements.length;
+        const count = data.elements?.length || 0;
+
         let level, risk, desc;
-        if (activityScore > 50) { level = 85; risk = 65; desc = 'Высокая плотность: центральная зона'; }
-        else if (activityScore > 25) { level = 60; risk = 45; desc = 'Средняя плотность: коммерческая зона'; }
-        else if (activityScore > 10) { level = 35; risk = 25; desc = 'Низкая плотность: жилая зона'; }
-        else { level = 15; risk = 15; desc = 'Очень низкая плотность: тихая зона'; }
+        if (count > 50) { level = 85; risk = 65; desc = 'Высокая плотность'; }
+        else if (count > 25) { level = 60; risk = 45; desc = 'Средняя плотность'; }
+        else if (count > 10) { level = 35; risk = 25; desc = 'Низкая плотность'; }
+        else { level = 15; risk = 15; desc = 'Очень низкая плотность'; }
+
         const result = { level, risk, desc, source: 'osm' };
         setCachedData(cacheKey, result);
         return result;
-    } catch (e) {
-        console.error("Ошибка получения плотности людей:", e);
+    } catch (error) {
+        console.error("Ошибка плотности:", error);
+        demoMode = true;
+        updateDemoBadge();
         return {
-            level: 25,
-            risk: 20,
-            desc: 'Данные плотности временно недоступны',
-            source: 'fallback'
+            level: Math.floor(Math.random() * 60) + 20,
+            risk: Math.floor(Math.random() * 50) + 15,
+            desc: 'Демо-данные (API недоступен)',
+            source: 'fallback',
+            isDemo: true
         };
     }
 }
 
-// --- ОСВЕЩЕННОСТЬ (ИСПРАВЛЕНО: через Overpass API + анализ времени) ---
+// --- ОСВЕЩЕННОСТЬ (Overpass API + время) ---
 async function getLightFromOSM(lat, lon) {
     const cacheKey = `light:${lat.toFixed(4)},${lon.toFixed(4)}`;
     const cached = getCachedData(cacheKey);
-    if (cached) {
-        return cached;
-    }
-    const now = new Date();
-    const timeInfo = await getTimeOfDayByLocation(lat, lon);
-    const isDaytime = timeInfo.isDaytime;
+    if (cached) return cached;
 
-    if (isDaytime) {
+    const timeInfo = await getTimeOfDayByLocation(lat, lon);
+    if (timeInfo.isDaytime) {
         return { level: 95, risk: 10, desc: 'Естественное освещение (день)', source: 'time_calc' };
     }
 
-    const query = `
-[out:json][timeout:${CONFIG.overpassTimeout}];
-(
-  node["highway"="street_lamp"](around:200,${lat},${lon});
-  node["man_made"="street_lamp"](around:200,${lat},${lon});
-  way["lighting"](around:200,${lat},${lon});
-  node["amenity"="street_light"](around:200,${lat},${lon});
-);
-out count;
-`;
+    const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["highway"="street_lamp"](around:200,${lat},${lon});node["man_made"="street_lamp"](around:200,${lat},${lon}););out count;`;
+
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
+        // ✅ ИСПРАВЛЕНО: правильный формат POST запроса
         const response = await fetch(CONFIG.overpassUrl, {
             method: 'POST',
-            body: query,
+            body: `data=${encodeURIComponent(query)}`,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             signal: controller.signal
         });
         clearTimeout(timeoutId);
+
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         const count = data.elements?.length || 0;
+
         let level, risk, desc;
-        if (count > 15) { level = 75; risk = 25; desc = 'Хорошее уличное освещение'; }
+        if (count > 15) { level = 75; risk = 25; desc = 'Хорошее освещение'; }
         else if (count > 5) { level = 50; risk = 45; desc = 'Среднее освещение'; }
         else { level = 25; risk = 70; desc = 'Слабое освещение'; }
+
         const result = { level, risk, desc, source: 'osm' };
         setCachedData(cacheKey, result);
         return result;
-    } catch (e) {
-        console.error("Ошибка получения освещенности:", e);
+    } catch (error) {
+        console.error("Ошибка освещенности:", error);
+        demoMode = true;
+        updateDemoBadge();
         return {
-            level: 25,
-            risk: 70,
-            desc: 'Данные освещенности временно недоступны',
-            source: 'fallback'
+            level: timeInfo.isDaytime ? 90 : Math.floor(Math.random() * 50) + 25,
+            risk: timeInfo.isDaytime ? 10 : Math.floor(Math.random() * 50) + 30,
+            desc: 'Демо-данные (API недоступен)',
+            source: 'fallback',
+            isDemo: true
         };
     }
 }
@@ -689,26 +643,28 @@ async function getSunriseSunset(lat, lon) {
     const cacheKey = `sunrise:${lat.toFixed(4)},${lon.toFixed(4)}`;
     const cached = getCachedData(cacheKey);
     if (cached) return cached;
+
     try {
         const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lon}&date=today&formatted=0`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
         const response = await fetch(url, { signal: controller.signal });
         clearTimeout(timeoutId);
+
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        if (!data.results || !data.results.sunrise) throw new Error('Invalid response format');
+
+        if (!data.results?.sunrise) throw new Error('Invalid response');
+
         const result = {
             sunrise: new Date(data.results.sunrise),
             sunset: new Date(data.results.sunset),
-            solar_noon: new Date(data.results.solar_noon),
-            civil_twilight_begin: new Date(data.results.civil_twilight_begin),
             civil_twilight_end: new Date(data.results.civil_twilight_end)
         };
         setCachedData(cacheKey, result);
         return result;
     } catch (error) {
-        console.error("Ошибка получения восхода/заката:", error);
+        console.error("Ошибка восхода/заката:", error);
         return null;
     }
 }
@@ -716,44 +672,50 @@ async function getSunriseSunset(lat, lon) {
 async function getTimeOfDayByLocation(lat, lon) {
     const now = new Date();
     const sunData = await getSunriseSunset(lat, lon);
+    const hour = now.getHours();
+
     if (!sunData) {
-        const hour = now.getHours();
         return {
             timeOfDay: hour >= 6 && hour < 12 ? 'Утро' : hour >= 12 && hour < 18 ? 'День' : hour >= 18 && hour < 23 ? 'Вечер' : 'Ночь',
             isDaytime: hour >= 6 && hour < 22,
             description: 'Локальное время'
         };
     }
+
     const isDaytime = now >= sunData.sunrise && now < sunData.sunset;
     let timeOfDay, description;
+
     if (now < sunData.sunrise) { timeOfDay = 'Ночь'; description = 'Темно, ограниченная видимость'; }
-    else if (now < new Date(sunData.sunrise.getTime() + 2 * 60 * 60 * 1000)) { timeOfDay = 'Утро'; description = 'Активное движение, хороший обзор'; }
-    else if (now < sunData.sunset) { timeOfDay = 'День'; description = 'Высокая активность, хорошая видимость'; }
-    else if (now < sunData.civil_twilight_end) { timeOfDay = 'Вечер'; description = 'Умеренная видимость, активность снижается'; }
+    else if (now < new Date(sunData.sunrise.getTime() + 2 * 60 * 60 * 1000)) { timeOfDay = 'Утро'; description = 'Активное движение'; }
+    else if (now < sunData.sunset) { timeOfDay = 'День'; description = 'Высокая активность'; }
+    else if (now < sunData.civil_twilight_end) { timeOfDay = 'Вечер'; description = 'Активность снижается'; }
     else { timeOfDay = 'Ночь'; description = 'Темно, ограниченная видимость'; }
+
     return { timeOfDay, isDaytime, description };
 }
 
 // --- РАСЧЕТ РИСКОВ ---
-async function calculateRiskFactors(coords, serverData = null) {
+async function calculateRiskFactors(coords) {
     const [lat, lon] = coords;
     const now = new Date();
     const day = now.getDay();
     const timeInfo = await getTimeOfDayByLocation(lat, lon);
-    const timeOfDay = timeInfo.timeOfDay;
-    const timeDesc = timeInfo.description;
-    let timeRisk;
-    if (timeOfDay === 'Ночь') { timeRisk = 75; }
-    else if (timeOfDay === 'Вечер') { timeRisk = 60; }
-    else if (timeOfDay === 'Утро') { timeRisk = 30; }
-    else { timeRisk = 40; }
-    const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-    const dayName = dayNames[day];
-    let dayRisk, dayDesc;
-    if (day === 0 || day === 6) { dayRisk = 35; dayDesc = 'Выходной: меньше транспорта, больше пешеходов'; }
-    else if (day === 5) { dayRisk = 70; dayDesc = 'Пятница: вечерние пробки, усталость после недели'; }
-    else { dayRisk = 55; dayDesc = 'Будний день: стандартная нагрузка'; }
 
+    // Время суток
+    let timeRisk;
+    if (timeInfo.timeOfDay === 'Ночь') timeRisk = 75;
+    else if (timeInfo.timeOfDay === 'Вечер') timeRisk = 60;
+    else if (timeInfo.timeOfDay === 'Утро') timeRisk = 30;
+    else timeRisk = 40;
+
+    // День недели
+    const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+    let dayRisk, dayDesc;
+    if (day === 0 || day === 6) { dayRisk = 35; dayDesc = 'Выходной день'; }
+    else if (day === 5) { dayRisk = 70; dayDesc = 'Пятница'; }
+    else { dayRisk = 55; dayDesc = 'Будний день'; }
+
+    // Параллельные запросы ко всем API
     const [noiseData, crowdData, lightData, weatherData, trafficData] = await Promise.allSettled([
         getNoiseFromMeersens(lat, lon),
         getCrowdFromOSM(lat, lon),
@@ -762,31 +724,12 @@ async function calculateRiskFactors(coords, serverData = null) {
         getTrafficFromTomTom(lat, lon)
     ]);
 
-    // Обработка результатов с учетом fallback
-    let noise = noiseData.status === 'fulfilled' ? noiseData.value : {
-        level: 45, risk: 30, desc: 'Данные шума временно недоступны', source: 'fallback'
-    };
-    let crowd = crowdData.status === 'fulfilled' ? crowdData.value : {
-        level: 25, risk: 20, desc: 'Данные плотности временно недоступны', source: 'fallback'
-    };
-    let light = lightData.status === 'fulfilled' ? lightData.value : {
-        level: 25, risk: 70, desc: 'Данные освещенности временно недоступны', source: 'fallback'
-    };
-    let weather = weatherData.status === 'fulfilled' ? weatherData.value : {
-        temp: 0, condition: 'Недоступно', wind: '—', humidity: 0
-    };
-    let traffic = trafficData.status === 'fulfilled' ? trafficData.value : {
-        level: 5, status: 'Данные недоступны', speed_avg: '--'
-    };
-
-    // Объединение с серверными данными (если есть)
-    if (serverData?.risks) {
-        const r = serverData.risks;
-        if (r.noise) { noise = { ...noise, ...r.noise }; }
-        if (r.crowd) { crowd = { ...crowd, ...r.crowd }; }
-        if (r.light) { light = { ...light, ...r.light }; }
-        if (r.traffic) { traffic = { ...traffic, ...r.traffic }; }
-    }
+    // Обработка результатов
+    const noise = noiseData.status === 'fulfilled' ? noiseData.value : { level: 45, risk: 30, desc: 'Недоступно', isDemo: true };
+    const crowd = crowdData.status === 'fulfilled' ? crowdData.value : { level: 25, risk: 20, desc: 'Недоступно', isDemo: true };
+    const light = lightData.status === 'fulfilled' ? lightData.value : { level: 25, risk: 70, desc: 'Недоступно', isDemo: true };
+    const weather = weatherData.status === 'fulfilled' ? weatherData.value : { temp: 0, condition: 'Недоступно', wind: '—', humidity: 0 };
+    const traffic = trafficData.status === 'fulfilled' ? trafficData.value : { level: 5, status: 'Недоступно', speed_avg: '--', isDemo: true };
 
     const trafficRisk = traffic.level * 10;
     const avgRisk = (noise.risk + crowd.risk + light.risk + timeRisk + dayRisk + trafficRisk) / 6;
@@ -794,13 +737,14 @@ async function calculateRiskFactors(coords, serverData = null) {
 
     return {
         noise, crowd, light,
-        time: { value: timeOfDay, risk: timeRisk, desc: timeDesc },
-        day: { value: dayName, risk: dayRisk, desc: dayDesc },
+        time: { value: timeInfo.timeOfDay, risk: timeRisk, desc: timeInfo.description },
+        day: { value: dayNames[day], risk: dayRisk, desc: dayDesc },
         traffic, weather, safetyIndex,
         timestamp: new Date().toLocaleString('ru')
     };
 }
 
+// --- UI ФУНКЦИИ ---
 function getRiskClass(risk) {
     if (risk < 40) return 'risk-low';
     if (risk < 70) return 'risk-medium';
@@ -821,6 +765,13 @@ function getSafetyLabel(index) {
     return '⚫ Высокий риск';
 }
 
+function updateDemoBadge() {
+    const badge = document.getElementById('demo-badge');
+    if (demoMode && badge) {
+        badge.style.display = 'inline-block';
+    }
+}
+
 // --- ИНИЦИАЛИЗАЦИЯ КАРТЫ ---
 ymaps.ready(init);
 
@@ -831,19 +782,24 @@ function init() {
             zoom: 13,
             controls: ['zoomControl', 'fullscreenControl', 'geolocationControl']
         });
-        // Пробки Яндекса
+
         try {
             new ymaps.layer.TrafficLayer({ trafficProvider: 'yandex#actual' }).setMap(map);
-        } catch(e) { console.warn("Пробки Яндекса недоступны:", e); }
+        } catch(e) { 
+            console.warn("Пробки Яндекса недоступны:", e); 
+        }
 
         createPlacemark(CONFIG.defaultCoords);
         mapInitialized = true;
+
         map.events.add('click', function(e) {
             const coords = e.get('coords');
             movePlacemark(coords, true);
         });
+
         checkServer();
         requestWeatherData(CONFIG.defaultCoords, true);
+
         document.getElementById('btn-force-refresh').addEventListener('click', forceRefresh);
         document.getElementById('btn-save').addEventListener('click', saveCurrentPoint);
     } catch (error) {
@@ -852,8 +808,7 @@ function init() {
 }
 
 function showMapError(error) {
-    const errorEl = document.getElementById('map-error');
-    errorEl.classList.add('visible');
+    document.getElementById('map-error').classList.add('visible');
 }
 
 function createPlacemark(coords) {
@@ -867,6 +822,7 @@ function createPlacemark(coords) {
         draggable: true,
         iconColor: '#e74c3c'
     });
+
     placemark.events.add('dragstart', () => { isDragging = true; });
     placemark.events.add('drag', (e) => {
         const coords = placemark.geometry.getCoordinates();
@@ -879,6 +835,7 @@ function createPlacemark(coords) {
         const coords = placemark.geometry.getCoordinates();
         requestWeatherData(coords, true);
     });
+
     map.geoObjects.add(placemark);
 }
 
@@ -918,16 +875,16 @@ async function requestWeatherData(coords, force = false) {
         Math.abs(coords[1] - lastRequestCoords[1]) < 0.0001) {
         return;
     }
+
     showLoader(true);
     try {
-        // Получаем данные с сервера (если он доступен)
         let serverData = { now: {} };
         try {
             const timestamp = Date.now();
             const response = await fetch(`${CONFIG.apiBase}/analyze?t=${timestamp}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
-                body: JSON.stringify({ lat: coords[0], lon: coords[1], timestamp: timestamp }),
+                body: JSON.stringify({ lat: coords[0], lon: coords[1], timestamp }),
                 timeout: 5000
             });
             if (response.ok) {
@@ -937,15 +894,13 @@ async function requestWeatherData(coords, force = false) {
             console.info("Сервер недоступен, используем только API:", err);
         }
 
-        // Рассчитываем риски (серверные данные будут объединены)
-        const risks = await calculateRiskFactors(coords, serverData);
+        const risks = await calculateRiskFactors(coords);
         serverData.risks = risks;
         renderData(serverData, coords);
         updateStatus('ok');
     } catch (err) {
-        console.error("Ошибка основного запроса:", err);
-        // Всё равно рассчитываем и отображаем, даже если были ошибки
-        const risks = await calculateRiskFactors(coords, { now: {} });
+        console.error("Ошибка запроса:", err);
+        const risks = await calculateRiskFactors(coords);
         renderData({ now: {}, risks }, coords);
         updateStatus('warning', 'Данные частично недоступны');
     } finally {
@@ -955,6 +910,8 @@ async function requestWeatherData(coords, force = false) {
 
 function forceRefresh() {
     apiCache.clear();
+    demoMode = false;
+    document.getElementById('demo-badge').style.display = 'none';
     requestWeatherData(currentCoords, true);
 }
 
@@ -962,6 +919,7 @@ function renderData(data, coords) {
     const w = data?.risks?.weather || data?.now?.weather || {};
     const risks = data?.risks;
     const safetyIndex = risks?.safetyIndex || 0;
+
     const safetyEl = document.getElementById('safety-index-value');
     const safetyLabel = document.getElementById('safety-index-label');
     const safetyCard = document.getElementById('safety-index-card');
@@ -969,10 +927,8 @@ function renderData(data, coords) {
     safetyEl.textContent = safetyIndex;
     safetyEl.style.color = 'white';
     const safetyColor = getSafetyColor(safetyIndex);
-    let darkColor;
-    if (safetyIndex >= 70) { darkColor = '#1e8449'; }
-    else if (safetyIndex >= 40) { darkColor = '#d35400'; }
-    else { darkColor = '#c0392b'; }
+    let darkColor = safetyIndex >= 70 ? '#1e8449' : safetyIndex >= 40 ? '#d35400' : '#c0392b';
+
     safetyLabel.textContent = getSafetyLabel(safetyIndex);
     safetyCard.style.background = `linear-gradient(135deg, ${safetyColor} 0%, ${darkColor} 100%)`;
     safetyCard.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.15)';
@@ -984,27 +940,19 @@ function renderData(data, coords) {
     updateRiskItem('day', null, risks?.day?.risk, risks?.day?.desc, risks?.day?.value);
 
     // Погода
-    const tempEl = document.getElementById('w-temp');
-    const condEl = document.getElementById('w-cond');
-    const windEl = document.getElementById('w-wind');
-    const humEl = document.getElementById('w-hum');
-    if (tempEl) tempEl.textContent = w.temp != null ? `${w.temp}°C` : '—';
-    if (condEl) condEl.textContent = w.condition || '—';
-    if (windEl) windEl.textContent = w.wind || '—';
-    if (humEl) humEl.textContent = w.humidity != null ? `${w.humidity}%` : '—';
+    document.getElementById('w-temp').textContent = w.temp != null ? `${w.temp}°C` : '—';
+    document.getElementById('w-cond').textContent = w.condition || '—';
+    document.getElementById('w-wind').textContent = w.wind || '—';
+    document.getElementById('w-hum').textContent = w.humidity != null ? `${w.humidity}%` : '—';
 
     // Пробки
-    const t = risks?.traffic || { level: 5, status: 'Данные недоступны', speed_avg: '--' };
-    const levelEl = document.getElementById('t-level');
-    const speedEl = document.getElementById('t-speed');
-    const statusEl = document.getElementById('t-status');
+    const t = risks?.traffic || { level: 5, status: 'Недоступно', speed_avg: '--' };
     const level = t.level ?? '—';
-    const status = t.status || '—';
-    const speed = t.speed_avg || '—';
-    if (levelEl) levelEl.textContent = level !== '—' ? `${level}/10` : '—';
-    if (speedEl) speedEl.textContent = speed;
+    const statusEl = document.getElementById('t-status');
+    document.getElementById('t-level').textContent = level !== '—' ? `${level}/10` : '—';
+    document.getElementById('t-speed').textContent = t.speed_avg || '—';
     if (statusEl) {
-        statusEl.textContent = status;
+        statusEl.textContent = t.status || '—';
         statusEl.className = 'data-value ' + (level !== '—' ? getTrafficClass(level) : 'traffic-low');
     }
 
@@ -1016,9 +964,11 @@ function updateRiskItem(type, level, risk, desc, valueOverride = null) {
     const value = document.getElementById(`${type}-value`);
     const description = document.getElementById(`${type}-desc`);
     if (!bar || !value) return;
+
     const riskClass = getRiskClass(risk);
     bar.className = `risk-fill ${riskClass}`;
     setTimeout(() => { bar.style.width = `${risk}%`; }, 100);
+
     if (valueOverride !== null) {
         value.textContent = valueOverride;
     } else if (level !== null) {
@@ -1056,13 +1006,8 @@ function saveCurrentPoint() {
         updated: null
     };
     savedPoints.unshift(point);
-    savePointsToStorage();
+    try { localStorage.setItem('smartKazanPoints', JSON.stringify(savedPoints)); } catch(e) {}
     alert('✅ Точка сохранена!');
-}
-
-function savePointsToStorage() {
-    try { localStorage.setItem('smartKazanPoints', JSON.stringify(savedPoints)); }
-    catch(e) {}
 }
 
 async function checkServer() {
@@ -1079,13 +1024,11 @@ async function checkServer() {
 }
 
 setInterval(checkServer, 30000);
-
 setTimeout(() => {
     if (!mapInitialized) {
         showMapError(new Error('Timeout'));
     }
 }, 5000);
-
 </script>
 </body>
 </html>
