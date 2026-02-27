@@ -292,11 +292,7 @@ const CONFIG = {
     sunriseUrl: 'https://api.sunrise-sunset.org/json',
     overpassTimeout: 25,
     cacheDuration: 300000, // 5 минут
-    // --- НОВЫЕ КЛЮЧИ ---
-    meersensApiKey: 'IdJ4EJLPIJ4FgwpfGIZ9Udv3HsgrO9il', // Обновлённый ключ
-    meersensBaseUrl: 'https://api.meersens.com/environment/public/noise/v1/current', // Обновлённый URL
-    tomTomApiKey: '1MTIUMcYPeMNMWPEUjXbKvJvYqYMwppa', // Обновлённый ключ
-    tomTomBaseUrl: 'https://api.tomtom.com/traffic/services/4/flow/current/absolute/10/json' // Обновлённый URL
+    fallbackRadius: 200 // Радиус для OSM fallback'ов в метрах
 };
 
 // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
@@ -308,7 +304,6 @@ let isDragging = false;
 let pendingRequest = null;
 let mapInitialized = false;
 let apiCache = new Map();
-let demoMode = false; // Может быть установлен в true, если основные API дают сбои
 
 // --- УТИЛИТЫ ---
 function throttle(func, limitMs) {
@@ -423,222 +418,101 @@ function getWeatherCondition(code) {
     return conditions[code] || `❓ ${code}`;
 }
 
-// --- ПРОБКИ (TomTom API) ---
-async function getTrafficFromTomTom(lat, lon) {
-    const cacheKey = `tomtom:${lat.toFixed(4)},${lon.toFixed(4)}`;
+// --- ПРОБКИ (FAKE/OSM-BASED FALLBACK) ---
+async function getTrafficFromFallback(lat, lon) {
+    // Используем только фоллбэк на основе времени суток
+    const hour = new Date().getHours();
+    let level, status, speed_avg;
+
+    if ((hour >= 7 && hour < 10) || (hour >= 17 && hour < 20)) {
+        level = 8;
+        status = 'Пиковые часы (Высокая загр.)';
+        speed_avg = '~15 км/ч';
+    } else if (hour >= 10 && hour < 17) {
+        level = 4;
+        status = 'Дневная активность';
+        speed_avg = '~40 км/ч';
+    } else {
+        level = 2;
+        status = 'Ночная тишина';
+        speed_avg = '~60 км/ч';
+    }
+
+    const trafficData = {
+        level: level,
+        status: status,
+        speed_avg: speed_avg,
+        source: 'fallback'
+    };
+
+    if (CONFIG.debugMode) console.log("Traffic (fallback) generated:", trafficData);
+    return trafficData;
+}
+
+// --- ШУМ (OSM-BASED) ---
+async function getNoiseFromOsmBased(lat, lon) {
+    const cacheKey = `noise_osm_based:${lat.toFixed(4)},${lon.toFixed(4)}`;
     const cached = getCachedData(cacheKey);
     if (cached) {
-        if (CONFIG.debugMode) console.log("Traffic cache hit:", cacheKey);
+        if (CONFIG.debugMode) console.log("Noise OSM-based cache hit:", cacheKey);
         return cached;
     }
-    try {
-        // Обновлённый URL для текущего состояния потока
-        const url = `${CONFIG.tomTomBaseUrl}?key=${CONFIG.tomTomApiKey}&point=${lat},${lon}`;
-        if (CONFIG.debugMode) console.log("Fetching traffic from:", url);
 
-        // ВНИМАНИЕ: TomTom API, скорее всего, вызовет CORS ошибку при прямом вызове из браузера
-        // Это приведёт к выполнению catch блока.
+    try {
+        const radius = CONFIG.fallbackRadius;
+        // Запрашиваем количество кафе, баров, ресторанов, заправок, дорог в радиусе
+        const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["amenity"~"cafe|bar|pub|fast_food|restaurant|fuel"](around:${radius},${lat},${lon});way["highway"~"primary|secondary|tertiary|residential"](around:${radius},${lat},${lon}););out count;`;
+        if (CONFIG.debugMode) console.log("Fetching noise from OSM with query:", query);
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const response = await fetch(url, {
-            headers: { 'Accept': 'application/json' },
+        const response = await fetch(CONFIG.overpassUrl, {
+            method: 'POST',
+            body: `data=${encodeURIComponent(query)}`,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             signal: controller.signal
         });
 
         clearTimeout(timeoutId);
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status} ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
 
         const data = await response.json();
-        if (!data.flowResponse || !data.flowResponse.frc) {
-             throw new Error('Invalid response structure or missing flow data');
-        }
+        const count = data.elements?.length || 0;
 
-        // TomTom возвращает массив сегментов, берём первый (ближайший)
-        const segment = data.flowResponse.segments[0];
-        if (!segment) {
-             throw new Error('No traffic segment found');
-        }
+        let level, risk, desc;
+        if (count > 40) { level = 75; risk = 80; desc = 'Очень шумно (OSM-Based)'; }
+        else if (count > 25) { level = 65; risk = 65; desc = 'Шумно (OSM-Based)'; }
+        else if (count > 15) { level = 55; risk = 45; desc = 'Умеренный шум (OSM-Based)'; }
+        else if (count > 5) { level = 45; risk = 30; desc = 'Тихо (OSM-Based)'; }
+        else { level = 35; risk = 15; desc = 'Очень тихо (OSM-Based)'; }
 
-        const currentSpeed = segment.currentSpeed;
-        const freeFlowSpeed = segment.freeFlowSpeed;
-        const travelTimeSeconds = segment.currentTravelTime;
-
-        let trafficLevel = 0;
-        if (freeFlowSpeed > 0) {
-            const speedRatio = currentSpeed / freeFlowSpeed;
-            // Инвертируем: чем ниже скорость, тем выше уровень загруженности
-            trafficLevel = Math.min(10, Math.round((1 - speedRatio) * 10));
-        }
-
-        let status, speedAvg;
-        if (currentSpeed <= 5) {
-            status = 'Колонна';
-            speedAvg = `${currentSpeed.toFixed(1)} км/ч`;
-        } else if (trafficLevel > 7) {
-            status = 'Высокая загруженность';
-            speedAvg = `${currentSpeed.toFixed(1)} км/ч`;
-        } else if (trafficLevel > 4) {
-            status = 'Умеренная загруженность';
-            speedAvg = `${currentSpeed.toFixed(1)} км/ч`;
-        } else {
-            status = 'Низкая загруженность';
-            speedAvg = `${currentSpeed.toFixed(1)} км/ч`;
-        }
-
-        const trafficData = {
-            level: trafficLevel,
-            status: status,
-            speed_avg: speedAvg,
-            travel_time: `${travelTimeSeconds}s`,
-            source: 'tomtom'
-        };
-
-        if (CONFIG.debugMode) console.log("Traffic fetched:", trafficData);
-        setCachedData(cacheKey, trafficData);
-        return trafficData;
+        const result = { level: level, risk: risk, desc: desc, source: 'osm_based' };
+        if (CONFIG.debugMode) console.log("Noise OSM-based result:", result);
+        setCachedData(cacheKey, result);
+        return result;
     } catch (error) {
-        console.error("TomTom Traffic API Error (likely CORS):", error);
-        // Обновляем статус, но не устанавливаем demoMode, так как это ожидаемое поведение для TomTom
-        updateStatus('warning', 'Пробки: API заблокирован (CORS)');
-
-        // Fallback: расчет на основе времени суток и типа дорог (как в оригинальном коде)
-        const hour = new Date().getHours();
-        let level, status;
-        if ((hour >= 7 && hour < 10) || (hour >= 17 && hour < 20)) {
-            level = 7;
-            status = 'Пиковые часы';
-        } else if (hour >= 10 && hour < 17) {
-            level = 4;
-            status = 'Дневная активность';
-        } else {
-            level = 2;
-            status = 'Ночная тишина';
-        }
-        return {
-            level: level,
-            status: status,
-            speed_avg: 'N/A',
-            source: 'fallback'
-        };
+        console.error("OSM-based Noise Error:", error);
+        // Финальный фоллбэк
+        const finalFallback = { level: 50, risk: 40, desc: 'Fallback (Error)', source: 'fallback_final' };
+        setCachedData(cacheKey, finalFallback);
+        return finalFallback;
     }
 }
 
-// --- ШУМ (Meersens API) ---
-async function getNoiseFromMeersens(lat, lon) {
-    const cacheKey = `meersens:${lat.toFixed(4)},${lon.toFixed(4)}`;
+// --- ПЛОТНОСТЬ ЛЮДЕЙ (OSM-BASED) ---
+async function getCrowdFromOsmBased(lat, lon) {
+    const cacheKey = `crowd_osm_based:${lat.toFixed(4)},${lon.toFixed(4)}`;
     const cached = getCachedData(cacheKey);
     if (cached) {
-        if (CONFIG.debugMode) console.log("Noise cache hit:", cacheKey);
+        if (CONFIG.debugMode) console.log("Crowd OSM-based cache hit:", cacheKey);
         return cached;
     }
+
     try {
-        // Используем обновлённый эндпоинт для текущих данных
-        const url = `${CONFIG.meersensBaseUrl}?lat=${lat}&lng=${lon}`;
-        if (CONFIG.debugMode) console.log("Fetching noise from:", url);
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        const response = await fetch(url, {
-            headers: {
-                'apikey': CONFIG.meersensApiKey,
-                'Accept': 'application/json'
-            },
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        // Изменилась структура ответа, проверяем по новому
-        // console.log("Raw Meersens response:", data); // Раскомментируйте для отладки
-        let noiseLevel = data?.atmospheric_noise?.value || data?.noise?.value || data?.noise?.Lden || data?.noise?.Lday || data?.noise?.average || null;
-
-        if (noiseLevel !== null && noiseLevel !== undefined) {
-            const risk = Math.min(100, Math.max(0, ((noiseLevel - 30) / 55) * 100));
-            const result = {
-                level: Math.round(noiseLevel),
-                risk: Math.round(risk),
-                desc: getNoiseDescription(noiseLevel),
-                source: 'meersens'
-            };
-            if (CONFIG.debugMode) console.log("Noise fetched:", result);
-            setCachedData(cacheKey, result);
-            return result;
-        } else {
-            throw new Error('No noise data found in response');
-        }
-    } catch (error) {
-        console.error("Meersens Noise API Error:", error);
-        updateStatus('warning', 'Шум: ошибка API');
-        demoMode = true;
-        // Fallback: расчет через OSM (объекты в радиусе) - теперь используем OSM, как вы сказали
-        try {
-            const radius = 200; // Используем фиксированный радиус
-            const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["amenity"~"cafe|bar|pub|fast_food|restaurant"](around:${radius},${lat},${lon});node["highway"~"motorway|trunk|primary|secondary"](around:150,${lat},${lon}););out count;`;
-            if (CONFIG.debugMode) console.log("Fetching noise fallback from OSM with query:", query);
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-            const response = await fetch(CONFIG.overpassUrl, {
-                method: 'POST',
-                body: `data=${encodeURIComponent(query)}`,
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
-
-            const data = await response.json();
-            const count = data.elements?.length || 0;
-
-            let level, risk, desc;
-            if (count > 30) { level = 70; risk = 75; desc = 'Очень шумно (Fallback OSM)'; }
-            else if (count > 15) { level = 60; risk = 55; desc = 'Шумно (Fallback OSM)'; }
-            else if (count > 5) { level = 50; risk = 35; desc = 'Умеренный шум (Fallback OSM)'; }
-            else { level = 40; risk = 20; desc = 'Тихо (Fallback OSM)'; }
-
-            const result = { level: level, risk: risk, desc: desc, source: 'fallback_osm' };
-            if (CONFIG.debugMode) console.log("Noise fallback OSM result:", result);
-            setCachedData(cacheKey, result);
-            return result;
-        } catch (e_osm) {
-            console.error("OSM Fallback for Noise Error:", e_osm);
-            return { level: 50, risk: 40, desc: 'Fallback (Error)', source: 'fallback_error' };
-        }
-    }
-}
-
-function getNoiseDescription(db) {
-    if (db < 45) return 'Тихо: спокойная зона';
-    if (db < 55) return 'Умеренный шум: жилая зона';
-    if (db < 65) return 'Заметный шум: оживлённая улица';
-    if (db < 75) return 'Шумно: транспортная магистраль';
-    return 'Очень шумно: зона высокого риска';
-}
-
-// --- ПЛОТНОСТЬ ЛЮДЕЙ (OSM) ---
-async function getCrowdFromOSM(lat, lon) {
-    const cacheKey = `crowd:${lat.toFixed(4)},${lon.toFixed(4)}`;
-    const cached = getCachedData(cacheKey);
-    if (cached) {
-        if (CONFIG.debugMode) console.log("Crowd cache hit:", cacheKey);
-        return cached;
-    }
-    try {
-        // Уточняем запрос к OSM - теперь используем OSM, как вы сказали
-        const radius = 200; // Используем фиксированный радиус
+        const radius = CONFIG.fallbackRadius;
+        // Запрашиваем количество кафе, ресторанов, магазинов, автобусных остановок, станций
         const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["amenity"~"cafe|restaurant|bar|pub|fast_food|fuel|bank|post_office"](around:${radius},${lat},${lon});node["shop"](around:${radius},${lat},${lon});node["highway"="bus_stop"](around:${radius},${lat},${lon});node["public_transport"="station"](around:${radius},${lat},${lon}););out count;`;
         if (CONFIG.debugMode) console.log("Fetching crowd from OSM with query:", query);
 
@@ -660,41 +534,31 @@ async function getCrowdFromOSM(lat, lon) {
         const count = data.elements?.length || 0;
 
         let level, risk, desc;
-        if (count > 50) { level = 90; risk = 80; desc = 'Очень высокая плотность (Fallback OSM)'; }
-        else if (count > 30) { level = 75; risk = 65; desc = 'Высокая плотность (Fallback OSM)'; }
-        else if (count > 15) { level = 50; risk = 45; desc = 'Средняя плотность (Fallback OSM)'; }
-        else if (count > 5) { level = 30; risk = 25; desc = 'Низкая плотность (Fallback OSM)'; }
-        else { level = 15; risk = 15; desc = 'Очень низкая плотность (Fallback OSM)'; }
+        if (count > 50) { level = 90; risk = 85; desc = 'Очень высокая плотность (OSM-Based)'; }
+        else if (count > 30) { level = 70; risk = 65; desc = 'Высокая плотность (OSM-Based)'; }
+        else if (count > 15) { level = 50; risk = 45; desc = 'Средняя плотность (OSM-Based)'; }
+        else if (count > 5) { level = 30; risk = 25; desc = 'Низкая плотность (OSM-Based)'; }
+        else { level = 15; risk = 15; desc = 'Очень низкая плотность (OSM-Based)'; }
 
-        const result = { level: level, risk: risk, desc: desc, source: 'osm_count' };
-        if (CONFIG.debugMode) console.log("Crowd fetched (OSM count):", result);
+        const result = { level: level, risk: risk, desc: desc, source: 'osm_based' };
+        if (CONFIG.debugMode) console.log("Crowd OSM-based result:", result);
         setCachedData(cacheKey, result);
         return result;
     } catch (error) {
-        console.error("OSM Crowd API Error:", error);
-        updateStatus('warning', 'Плотность: ошибка API');
-        demoMode = true;
-
-        // Fallback: случайные данные
-        const count = Math.floor(Math.random() * 40) + 10;
-        let level, risk, desc;
-        if (count > 30) { level = 70; risk = 55; desc = 'Fallback (Random)'; }
-        else if (count > 15) { level = 45; risk = 35; desc = 'Fallback (Random)'; }
-        else { level = 25; risk = 20; desc = 'Fallback (Random)'; }
-
-        const result = { level: level, risk: risk, desc: desc, source: 'fallback_random' };
-        if (CONFIG.debugMode) console.log("Crowd fallback (random) result:", result);
-        setCachedData(cacheKey, result); // Кэшируем и фоллбэк
-        return result;
+        console.error("OSM-based Crowd Error:", error);
+        // Финальный фоллбэк
+        const finalFallback = { level: 35, risk: 25, desc: 'Fallback (Error)', source: 'fallback_final' };
+        setCachedData(cacheKey, finalFallback);
+        return finalFallback;
     }
 }
 
-// --- ОСВЕЩЕННОСТЬ (OSM + время) ---
-async function getLightFromOSM(lat, lon) {
-    const cacheKey = `light:${lat.toFixed(4)},${lon.toFixed(4)}`;
+// --- ОСВЕЩЕННОСТЬ (Sunrise-Sunset + OSM Lamps) ---
+async function getLightFromSunriseAndOsm(lat, lon) {
+    const cacheKey = `light_sunrise_osm:${lat.toFixed(4)},${lon.toFixed(4)}`;
     const cached = getCachedData(cacheKey);
     if (cached) {
-        if (CONFIG.debugMode) console.log("Light cache hit:", cacheKey);
+        if (CONFIG.debugMode) console.log("Light (Sunrise+OSM) cache hit:", cacheKey);
         return cached;
     }
     try {
@@ -711,8 +575,8 @@ async function getLightFromOSM(lat, lon) {
             return result;
         }
 
-        // Запрос лампочек ночью из OSM - как вы сказали
-        const radius = 200; // Используем фиксированный радиус
+        // Запрос лампочек ночью из OSM
+        const radius = CONFIG.fallbackRadius;
         const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["highway"="street_lamp"](around:${radius},${lat},${lon});node["man_made"="street_lamp"](around:${radius},${lat},${lon}););out count;`;
         if (CONFIG.debugMode) console.log("Fetching light from OSM with query:", query);
 
@@ -744,21 +608,11 @@ async function getLightFromOSM(lat, lon) {
         setCachedData(cacheKey, result);
         return result;
     } catch (error) {
-        console.error("OSM Light API Error:", error);
-        updateStatus('warning', 'Освещение: ошибка API');
-        demoMode = true;
-
-        // Fallback: случайные данные
-        const count = Math.floor(Math.random() * 20) + 5;
-        let level, risk, desc;
-        if (count > 15) { level = 70; risk = 30; desc = 'Fallback (Random)'; }
-        else if (count > 8) { level = 45; risk = 50; desc = 'Fallback (Random)'; }
-        else { level = 25; risk = 70; desc = 'Fallback (Random)'; }
-
-        const result = { level: level, risk: risk, desc: desc, source: 'fallback_random' };
-        if (CONFIG.debugMode) console.log("Light fallback (random) result:", result);
-        setCachedData(cacheKey, result); // Кэшируем и фоллбэк
-        return result;
+        console.error("OSM-based Light Error:", error);
+        // Финальный фоллбэк
+        const finalFallback = { level: 40, risk: 50, desc: 'Fallback (Error)', source: 'fallback_final' };
+        setCachedData(cacheKey, finalFallback);
+        return finalFallback;
     }
 }
 
@@ -873,13 +727,13 @@ async function calculateRiskFactors(coords) {
         dayDesc = 'Будний день';
     }
 
-    // Параллельные запросы ко всем API
+    // Параллельные запросы ко всем API (теперь только бесплатные)
     const [noiseData, crowdData, lightData, weatherData, trafficData] = await Promise.allSettled([
-        getNoiseFromMeersens(lat, lon),      // Использует Meersens, затем OSM
-        getCrowdFromOSM(lat, lon),           // Использует OSM
-        getLightFromOSM(lat, lon),           // Использует OSM
-        getWeatherFromOpenMeteo(lat, lon),   // Использует Open-Meteo
-        getTrafficFromTomTom(lat, lon)       // Попытка к TomTom, затем fallback
+        getNoiseFromOsmBased(lat, lon),         // OSM
+        getCrowdFromOsmBased(lat, lon),         // OSM
+        getLightFromSunriseAndOsm(lat, lon),    // Sunrise-Sunset + OSM
+        getWeatherFromOpenMeteo(lat, lon),      // Open-Meteo
+        getTrafficFromFallback(lat, lon)        // Fallback (время суток)
     ]);
 
     // Обработка результатов
@@ -973,14 +827,21 @@ function init() {
             controls: ['zoomControl', 'fullscreenControl', 'geolocationControl']
         });
 
-        // Слой пробок Яндекса (для сравнения)
+        // --- СЛОЙ ПРОБОК ЯНДЕКС (ВСЕГДА ВКЛЮЧЁН) ---
         try {
+            // Создаём слой пробок
             const trafficLayer = new ymaps.layer.TrafficLayer({
                 trafficProvider: 'yandex#actual',
-                showInScaleDependentMode: false // Показывать всегда
+                showInScaleDependentMode: false // Показывать всегда, независимо от масштаба
             });
+            // Добавляем слой на карту
             trafficLayer.setMap(map);
-        } catch(e) { console.warn("Yandex Traffic layer unavailable:", e); }
+            console.log("Yandex Traffic layer added and enabled.");
+        } catch(e) {
+            console.warn("Failed to initialize Yandex Traffic layer:", e);
+            updateStatus('warning', 'Пробки: ошибка слоя');
+        }
+        // -----------------------------
 
         createPlacemark(CONFIG.defaultCoords);
 
@@ -1079,9 +940,7 @@ async function requestWeatherData(coords, force = false) {
         const risks = await calculateRiskFactors(coords);
         renderData({ risks }, coords);
         updateStatus('ok', `Данные обновлены (${risks.timestamp})`);
-        if (demoMode) {
-             updateStatus('warning', `Данные частично из резерва (FALLBACK)`);
-        }
+        // Убрана проверка demoMode, так как теперь используем только бесплатные API
     } catch (err) {
         console.error("Main request error:", err);
         updateStatus('error', 'Ошибка загрузки данных');
@@ -1092,7 +951,7 @@ async function requestWeatherData(coords, force = false) {
 
 function forceRefresh() {
     apiCache.clear(); // Очищаем кэш
-    demoMode = false; // Сбрасываем флаг демо-режима
+    // Убрана установка demoMode
     updateStatus('loading', 'Принудительное обновление...');
     requestWeatherData(currentCoords, true);
 }
@@ -1126,7 +985,7 @@ function renderData(data, coords) {
     document.getElementById('w-wind').textContent = w.wind || '—';
     document.getElementById('w-hum').textContent = w.humidity != null ? `${w.humidity}%` : '—';
 
-    // Пробки
+    // Пробки (только информация для отображения, слой на карте отдельно)
     const t = risks?.traffic || { level: 5, status: 'N/A' };
     document.getElementById('t-level').textContent = t.level !== undefined ? `${t.level}/10` : '—';
     document.getElementById('t-status').textContent = t.status || '—';
