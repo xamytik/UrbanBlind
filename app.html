@@ -9,7 +9,7 @@
 /* ==================== БАЗОВЫЕ СТИЛИ ==================== */
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
 :root {
-    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-bg: rgba(255, 255, 255, 0.9);
     --glass-border: rgba(0, 0, 0, 0.08);
     --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     --glass-blur: blur(12px);
@@ -27,29 +27,38 @@
     --light-color: #3498db;
     --time-color: #1abc9c;
     --day-color: #e67e22;
-    --bg: #f5f7fa;
+    --bg: #e3f2fd; /* 🔵 Светло-голубой фон */
     --card-bg: #ffffff;
     --shadow: 0 2px 10px rgba(0,0,0,0.08);
     --radius: 12px;
+    --success: #27ae60;
+    --warning: #e67e22;
+    --danger: #e74c3c;
 }
 body {
     display: flex;
     height: 100vh;
     overflow: hidden;
-    background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%);
+    background: var(--bg); /* 🔵 Светло-голубой фон */
     width: 100vw;
     -webkit-tap-highlight-color: transparent;
 }
 
-/* ==================== ЛОГОТИП ==================== */
+/* ==================== ЛОГОТИП (DESKTOP) ==================== */
 #ub-logo {
-    position: fixed; top: 5px; left: 40px; font-size: 28px; font-weight: 800;
-    color: var(--secondary-color); z-index: 100; text-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    letter-spacing: -1px; background: #ffffff; border-radius: 12px;
-    padding: 5px 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(0, 0, 0, 0.08); transition: all 0.3s ease;
+    position: fixed; top: 15px; left: 20px; font-size: 24px; font-weight: 800;
+    color: white; z-index: 100; text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border-radius: 12px;
+    padding: 8px 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    display: flex; align-items: center; gap: 8px;
 }
-#ub-logo:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); }
+#ub-logo::before { content: '🛡️'; font-size: 20px; }
+#ub-logo:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); }
 
 /* ==================== КАРТА ==================== */
 #map { flex: 2; height: 100%; min-width: 0; position: relative; background: #e8eaed; }
@@ -102,12 +111,15 @@ h1 { font-size: 20px; color: var(--secondary-color); margin-bottom: 5px; font-we
 .api-status {
     display: flex; align-items: center; font-size: 11px;
     color: var(--text-muted); margin-top: 12px; flex-wrap: wrap;
-    gap: 8px; background: rgba(0, 0, 0, 0.03); padding: 8px 12px; border-radius: 8px;
+    gap: 8px;
+    background: rgba(52, 152, 219, 0.15); /* 🔵 Голубой фон статуса */
+    padding: 6px 12px; border-radius: 20px;
+    border: 1px solid rgba(52, 152, 219, 0.3);
 }
 .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
-.status-good { background-color: var(--accent-green); }
-.status-warning { background-color: var(--accent-orange); }
-.status-error { background-color: #e74c3c; }
+.status-good { background-color: var(--accent-green); box-shadow: 0 0 8px rgba(39,174,96,0.5); }
+.status-warning { background-color: var(--accent-orange); box-shadow: 0 0 8px rgba(230,126,34,0.5); }
+.status-error { background-color: var(--danger); box-shadow: 0 0 8px rgba(231,76,60,0.5); }
 .card {
     background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
     padding: 20px; margin-bottom: 20px; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -145,7 +157,7 @@ h1 { font-size: 20px; color: var(--secondary-color); margin-bottom: 5px; font-we
 .risk-fill { height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(0.25, 0.8, 0.25, 1), background 0.5s ease; position: relative; overflow: hidden; }
 .risk-low { background: var(--accent-green); box-shadow: 0 2px 8px rgba(39, 174, 96, 0.2); }
 .risk-medium { background: var(--accent-orange); box-shadow: 0 2px 8px rgba(230, 126, 34, 0.2); }
-.risk-high { background: #e74c3c; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2); }
+.risk-high { background: var(--danger); box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2); }
 .risk-value { min-width: 50px; text-align: right; font-weight: 600; font-size: 14px; color: var(--text-primary); transition: all 0.3s ease; }
 .traffic-low { background: #d4edda; color: #155724; padding: 3px 8px; border-radius: 15px; font-weight: 600; font-size: 13px; display: inline-block; }
 .traffic-medium { background: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 15px; font-weight: 600; font-size: 13px; display: inline-block; }
@@ -165,27 +177,34 @@ footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-
 
 /* ==================== МОБИЛЬНЫЕ СТИЛИ ==================== */
 .app-header {
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     color: white;
-    padding: 15px 20px;
+    padding: 12px 15px;
     display: none;
     justify-content: space-between;
     align-items: center;
     box-shadow: 0 2px 10px rgba(0,0,0,0.15);
     z-index: 100;
 }
-.app-title { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.app-title {
+    font-size: 18px; font-weight: 800; letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 8px;
+}
+.app-title::before { content: '🛡️'; font-size: 20px; }
 .app-status {
-    display: flex; align-items: center; gap: 6px; font-size: 12px;
-    background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 20px;
+    display: flex; align-items: center; gap: 6px; font-size: 11px;
+    background: rgba(255,255,255,0.2);
+    padding: 4px 12px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.3);
 }
 .app-content {
-    flex: 1; overflow-y: auto; padding: 15px; padding-bottom: 80px; display: none;
+    flex: 1; overflow-y: auto; padding: 12px; padding-bottom: 80px; display: none;
+    background: var(--bg); /* 🔵 Светло-голубой фон */
 }
 .safety-card {
     background: linear-gradient(135deg, var(--success), #1abc9c);
-    border-radius: var(--radius); padding: 25px; color: white;
-    text-align: center; margin-bottom: 15px;
+    border-radius: var(--radius); padding: 20px; color: white;
+    text-align: center; margin-bottom: 12px;
     box-shadow: 0 4px 15px rgba(39,174,96,0.3); position: relative; overflow: hidden;
 }
 .safety-card::before {
@@ -195,44 +214,45 @@ footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-
     animation: rotate 10s linear infinite;
 }
 @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.safety-value { font-size: 56px; font-weight: 800; position: relative; z-index: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-.safety-label { font-size: 14px; opacity: 0.95; margin-top: 5px; position: relative; z-index: 1; }
-.safety-coords { font-size: 11px; opacity: 0.8; margin-top: 10px; position: relative; z-index: 1; }
+.safety-value { font-size: 48px; font-weight: 800; position: relative; z-index: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.safety-label { font-size: 13px; opacity: 0.95; margin-top: 5px; position: relative; z-index: 1; }
+.safety-coords { font-size: 10px; opacity: 0.8; margin-top: 8px; position: relative; z-index: 1; }
 .section-title {
-    font-size: 16px; font-weight: 600; color: var(--secondary);
-    margin: 20px 0 10px 0; display: flex; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 600; color: var(--secondary-color);
+    margin: 15px 0 8px 0; display: flex; align-items: center; gap: 8px;
 }
-.risk-grid-mobile { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.risk-grid-mobile { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .risk-card {
     background: var(--card-bg); border-radius: var(--radius);
-    padding: 15px; box-shadow: var(--shadow);
-    border-left: 4px solid var(--accent); transition: all 0.3s ease;
+    padding: 12px; box-shadow: var(--shadow);
+    border-left: 4px solid var(--accent-blue); transition: all 0.3s ease;
 }
 .risk-card:active { transform: scale(0.98); }
-.risk-card.noise { border-left-color: #f39c12; }
-.risk-card.crowd { border-left-color: #9b59b6; }
-.risk-card.light { border-left-color: #3498db; }
-.risk-card.time { border-left-color: #1abc9c; }
-.risk-card.day { border-left-color: #e67e22; }
-.risk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.risk-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.risk-card.noise { border-left-color: var(--noise-color); }
+.risk-card.crowd { border-left-color: var(--crowd-color); }
+.risk-card.light { border-left-color: var(--light-color); }
+.risk-card.time { border-left-color: var(--time-color); }
+.risk-card.day { border-left-color: var(--day-color); }
+.risk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.risk-title { font-size: 13px; font-weight: 600; color: var(--text); }
 .risk-badge {
     font-size: 9px; background: linear-gradient(135deg, var(--success), #1abc9c);
     color: white; padding: 2px 6px; border-radius: 8px; font-weight: 600;
 }
-.risk-bar-container { height: 8px; background: rgba(0,0,0,0.05); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
-.risk-bar { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(0.25, 0.8, 0.25, 1); }
-.risk-footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.risk-bar-container { height: 6px; background: rgba(0,0,0,0.05); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+.risk-bar { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.25, 0.8, 0.25, 1); }
+.risk-footer { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
 .risk-desc { color: var(--text-muted); flex: 1; }
-.risk-percent { font-weight: 700; color: var(--text); min-width: 45px; text-align: right; }
-.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.info-card { background: var(--card-bg); border-radius: var(--radius); padding: 15px; box-shadow: var(--shadow); }
-.info-icon { font-size: 24px; margin-bottom: 8px; }
-.info-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-.info-value { font-size: 16px; font-weight: 600; color: var(--text); }
+.risk-percent { font-weight: 700; color: var(--text); min-width: 40px; text-align: right; }
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.info-card { background: var(--card-bg); border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow); }
+.info-icon { font-size: 20px; margin-bottom: 6px; }
+.info-label { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+.info-value { font-size: 14px; font-weight: 600; color: var(--text); }
 .map-container {
-    height: 200px; border-radius: var(--radius); overflow: hidden;
-    margin-bottom: 15px; box-shadow: var(--shadow); position: relative; display: none;
+    height: 220px; border-radius: var(--radius); overflow: hidden;
+    margin-bottom: 12px; box-shadow: var(--shadow); position: relative;
+    display: none; width: 100%; /* 🔵 Исправлено: полная ширина */
 }
 #map-mobile { width: 100%; height: 100%; }
 .map-placeholder {
@@ -244,22 +264,22 @@ footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-
 .app-nav {
     position: fixed; bottom: 0; left: 0; right: 0;
     background: var(--card-bg); display: none;
-    justify-content: space-around; padding: 10px 0;
+    justify-content: space-around; padding: 8px 0;
     box-shadow: 0 -2px 10px rgba(0,0,0,0.08); z-index: 100;
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 .nav-item {
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    color: var(--text-muted); font-size: 11px; padding: 5px 15px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    color: var(--text-muted); font-size: 10px; padding: 4px 12px;
     border-radius: 8px; transition: all 0.2s ease; cursor: pointer;
 }
 .nav-item:active { transform: scale(0.95); }
-.nav-item.active { color: var(--accent-blue); background: rgba(52,152,219,0.1); }
-.nav-icon { font-size: 20px; }
+.nav-item.active { color: var(--accent-blue); background: rgba(52,152,219,0.15); }
+.nav-icon { font-size: 18px; }
 .refresh-btn {
     background: var(--accent-blue); color: white; border: none;
-    padding: 8px 16px; border-radius: 20px; font-size: 13px;
-    font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 18px; font-size: 12px;
+    font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px;
     transition: all 0.2s ease;
 }
 .refresh-btn:active { transform: scale(0.95); }
@@ -267,23 +287,30 @@ footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-
 .page.active { display: block; }
 .saved-point {
     background: var(--card-bg); border-radius: var(--radius);
-    padding: 15px; margin-bottom: 10px; box-shadow: var(--shadow);
+    padding: 12px; margin-bottom: 8px; box-shadow: var(--shadow);
     display: flex; justify-content: space-between; align-items: center;
 }
 .saved-point-info { flex: 1; }
-.saved-point-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
-.saved-point-coords { font-size: 11px; color: var(--text-muted); }
+.saved-point-name { font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+.saved-point-coords { font-size: 10px; color: var(--text-muted); }
 .saved-point-action {
     background: var(--accent-blue); color: white; border: none;
-    padding: 6px 12px; border-radius: 15px; font-size: 12px; cursor: pointer;
+    padding: 5px 10px; border-radius: 13px; font-size: 11px; cursor: pointer;
 }
 .toast {
-    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(100px);
-    background: var(--secondary); color: white; padding: 12px 20px;
-    border-radius: 25px; font-size: 13px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    position: fixed; bottom: 75px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--secondary-color); color: white; padding: 10px 18px;
+    border-radius: 22px; font-size: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     transition: all 0.3s ease; z-index: 1000; opacity: 0;
 }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* 🔵 Кнопка "Очистить все" на голубом фоне */
+.btn-clear-points {
+    background: var(--accent-blue) !important;
+    color: white !important;
+}
+.btn-clear-points:hover { background: #2980b9 !important; }
 
 /* ==================== СКРОЛЛБАРЫ ==================== */
 ::-webkit-scrollbar { width: 6px; }
@@ -309,15 +336,20 @@ footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-
     #sidebar, #map { display: none !important; }
     #ub-logo { display: none; }
     .app-header, .app-content, .map-container, .app-nav { display: flex !important; }
-    .map-container { height: 250px; }
-    .safety-value { font-size: 48px; }
+    .map-container {
+        height: 250px;
+        width: 100%; /* 🔵 Полная ширина на мобильных */
+        margin: 0 12px 12px 12px;
+    }
+    .safety-value { font-size: 42px; }
     .risk-grid-mobile { grid-template-columns: 1fr; }
+    .app-content { padding: 12px; }
 }
 
 /* ==================== ТЕМНАЯ ТЕМА ==================== */
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg: #1a1a2e; --card-bg: #16213e; --text: #eaeaea; --text-muted: #a0a0a0;
+        --bg: #1a2332; --card-bg: #16213e; --text: #eaeaea; --text-muted: #a0a0a0;
     }
 }
 </style>
@@ -452,7 +484,7 @@ footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-
 
 <!-- 🔥 МОБИЛЬНЫЙ HEADER -->
 <header class="app-header">
-    <div class="app-title">🛡️ UrbanBlind</div>
+    <div class="app-title">UrbanBlind</div>
     <div class="app-status">
         <span class="status-dot" id="status-dot-mobile"></span>
         <span id="status-text-mobile">Подключение</span>
@@ -549,7 +581,7 @@ footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-
         <div class="section-title">📌 Сохранённые точки</div>
         <div id="saved-list"></div>
         <button class="refresh-btn" id="btn-save-point" style="width:100%;margin-top:15px;justify-content:center;">💾 Сохранить текущую точку</button>
-        <button class="refresh-btn" id="btn-clear-points" style="width:100%;margin-top:10px;justify-content:center;background:var(--danger);">🗑️ Очистить все</button>
+        <button class="refresh-btn btn-clear-points" id="btn-clear-points" style="width:100%;margin-top:10px;justify-content:center;">🗑️ Очистить все</button>
     </div>
     <div id="page-info" class="page">
         <div class="section-title">ℹ️ О приложении</div>
@@ -599,7 +631,6 @@ function isMobileDevice() {
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     return isMobileUA || (isSmallScreen && hasTouch);
 }
-
 const IS_MOBILE = isMobileDevice();
 
 // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
@@ -905,16 +936,14 @@ async function calculateRiskFactors(coords) {
 function updateRiskItem(type, level, risk, desc, valueOverride = null, isMobile = false) {
     const prefix = isMobile ? `${type}-mobile` : type;
     const bar = document.getElementById(`${prefix}-bar`);
-    const value = document.getElementById(isMobile ? `${prefix}-percent` : `${prefix}-value`);
-    const description = document.getElementById(`${prefix}-desc`);
-    if (!bar || !value) return;
+    const percent = document.getElementById(`${prefix}-percent`);
+    const descEl = document.getElementById(`${prefix}-desc`);
+    if (!bar) return;
     const riskClass = getRiskClass(risk);
     bar.className = `risk-bar ${riskClass}`;
     setTimeout(() => { bar.style.width = `${risk}%`; }, 100);
-    if (valueOverride !== null) value.textContent = valueOverride;
-    else if (level !== null) value.textContent = `${level}%`;
-    else value.textContent = `${risk}%`;
-    if (description) description.textContent = desc;
+    if (percent) percent.textContent = `${risk}%`;
+    if (descEl) descEl.textContent = desc || '—';
 }
 
 function renderData(data, coords, isMobile = false) {
@@ -938,18 +967,26 @@ function renderData(data, coords, isMobile = false) {
         safetyCard.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.15)';
     }
 
-    updateRiskItem('noise', risks?.noise?.level, risks?.noise?.risk, risks?.noise?.desc, null, isMobile);
-    updateRiskItem('crowd', risks?.crowd?.level, risks?.crowd?.risk, risks?.crowd?.desc, null, isMobile);
-    updateRiskItem('light', risks?.light?.level, risks?.light?.risk, risks?.light?.desc, null, isMobile);
-    updateRiskItem('time', null, risks?.time?.risk, risks?.time?.desc, risks?.time?.value, isMobile);
-
+    // 🔵 Обновляем факторы риска для МОБИЛЬНОЙ версии
     if (isMobile) {
+        updateRiskItem('noise', risks?.noise?.level, risks?.noise?.risk, risks?.noise?.desc, null, true);
+        updateRiskItem('crowd', risks?.crowd?.level, risks?.crowd?.risk, risks?.crowd?.desc, null, true);
+        updateRiskItem('light', risks?.light?.level, risks?.light?.risk, risks?.light?.desc, null, true);
+        updateRiskItem('time', null, risks?.time?.risk, risks?.time?.desc, risks?.time?.value, true);
+
         if (w.temp != null) document.getElementById('w-temp-mobile').textContent = `${w.temp}°C`;
         if (w.wind) document.getElementById('w-wind-mobile').textContent = w.wind;
         const t = risks?.traffic || { level: 5, status: 'Недоступно' };
         if (t.level !== undefined) document.getElementById('t-level-mobile').textContent = `${t.level}/10`;
         if (t.status) document.getElementById('t-status-mobile').textContent = t.status;
-    } else {
+    }
+    // Desktop версия
+    else {
+        updateRiskItem('noise', risks?.noise?.level, risks?.noise?.risk, risks?.noise?.desc, null, false);
+        updateRiskItem('crowd', risks?.crowd?.level, risks?.crowd?.risk, risks?.crowd?.desc, null, false);
+        updateRiskItem('light', risks?.light?.level, risks?.light?.risk, risks?.light?.desc, null, false);
+        updateRiskItem('time', null, risks?.time?.risk, risks?.time?.desc, risks?.time?.value, false);
+
         if (w.temp != null) document.getElementById('w-temp').textContent = `${w.temp}°C`;
         if (w.condition) document.getElementById('w-cond').textContent = w.condition;
         if (w.wind) document.getElementById('w-wind').textContent = w.wind;
