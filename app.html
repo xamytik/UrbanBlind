@@ -162,7 +162,7 @@ body { flex-direction: column; }
 <div id="map">
 <div id="map-error">
 <h2>🗺️ Карта не загрузилась</h2>
-<p>Возможно, проблема с интернетом или API Яндекс.Карт.</p>
+<p>Возможно, проблема с интернетом.</p>
 <p><strong>Координаты центра Казани:</strong><br>55.7961, 49.1064</p>
 <button onclick="location.reload()">🔄 Обновить страницу</button>
 </div>
@@ -184,8 +184,8 @@ body { flex-direction: column; }
 <h1>UrbanBlind</h1>
 <div class="subtitle">Факторы риска • Безопасность • Аналитика</div>
 <div class="api-status">
-<span class="status-dot status-warning" id="server-dot"></span>
-<span id="server-text">Инициализация...</span>
+<span class="status-dot status-good" id="server-dot"></span>
+<span id="server-text">Подключение...</span>
 <button id="btn-force-refresh" class="btn-refresh" title="Принудительно обновить">🔄</button>
 </div>
 </div>
@@ -260,6 +260,7 @@ body { flex-direction: column; }
 </div>
 </div>
 </div>
+</div>
 <div class="card">
 <div class="card-title"><span class="icon">🌤️</span>Погода</div>
 <div class="data-row"><span class="data-label">Температура:</span><span class="data-value" id="w-temp">—</span></div>
@@ -274,11 +275,10 @@ body { flex-direction: column; }
 </div>
 </div>
 <footer>
-<p>UrbanBlind © 2026 | Yandex Maps • OpenStreetMap • Open-Meteo • TomTom</p>
+<p>UrbanBlind © 2026 | Yandex Maps • OpenStreetMap • Open-Meteo</p>
 <p style="font-size:10px;margin-top:5px;color:var(--text-muted)">Хакатон «Умный город» — Анализ факторов риска</p>
 </footer>
 </div>
-<!-- Подключение Яндекс.Карт -->
 <script src="https://api-maps.yandex.ru/2.1/?apikey=c2763cd1-5a14-4131-842c-2bbd60932c52&lang=ru_RU" type="text/javascript"></script>
 <script>
 // --- НАСТРОЙКИ ---
@@ -292,7 +292,7 @@ const CONFIG = {
     sunriseUrl: 'https://api.sunrise-sunset.org/json',
     overpassTimeout: 25,
     cacheDuration: 300000, // 5 минут
-    fallbackRadius: 200 // Радиус для OSM fallback'ов в метрах
+    fallbackRadius: 200 // Радиус для OSM запросов в метрах
 };
 
 // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
