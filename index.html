@@ -5,195 +5,1151 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UrbanBlind - Анализ рисков и безопасности</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --glass-blur: blur(12px);
+            --primary-color: #34495e;
+            --secondary-color: #2c3e50;
+            --accent-blue: #3498db;
+            --accent-orange: #e67e22;
+            --accent-purple: #9b59b6;
+            --accent-green: #27ae60;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --text-muted: #95a5a6;
+            --noise-color: #f39c12;
+            --crowd-color: #9b59b6;
+            --light-color: #3498db;
+            --time-color: #1abc9c;
+            --day-color: #e67e22;
         }
-
-        body {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-            position: relative;
-            margin: 0;
-            padding: 0;
+        body { display: flex; height: 100vh; overflow: hidden; background: linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%); width: 100vw; }
+        #ub-logo {
+            position: fixed; top: 5px; left: 40px; font-size: 28px; font-weight: 800;
+            color: var(--secondary-color); z-index: 100; text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            letter-spacing: -1px; background: #ffffff; border-radius: 12px;
+            padding: 5px 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.08); transition: all 0.3s ease;
         }
-
-        #background-map {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -2;
+        #ub-logo:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); }
+        #map { flex: 2; height: 100%; min-width: 0; position: relative; background: #e8eaed; }
+        #map-error {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            color: white; display: none; flex-direction: column;
+            align-items: center; justify-content: center; text-align: center;
+            padding: 20px; z-index: 1000; animation: fadeIn 0.5s ease;
         }
-
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.7);
-            z-index: -1;
-        }
-
-        .content {
-            text-align: center;
-            padding: 20px;
-            z-index: 10;
-            width: 100%;
-            max-width: 500px;
-        }
-
-        .btn-main {
-            padding: 22px 45px;
-            background: #2c3e50;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 26px;
-            font-weight: 600;
+        #map-error.visible { display: flex; }
+        #map-error h2 { margin-bottom: 15px; font-size: 24px; }
+        #map-error p { margin-bottom: 20px; max-width: 400px; line-height: 1.6; }
+        #map-error button {
+            padding: 12px 24px; background: rgba(255, 255, 255, 0.15);
+            color: white; border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;
             transition: all 0.3s ease;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-            margin-bottom: 20px;
-            display: inline-block;
-            position: relative;
-            overflow: hidden;
         }
-
-        .btn-main::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: all 0.6s;
+        #map-error button:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-2px); }
+        #sidebar {
+            flex: 1; background: var(--glass-bg); backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur); padding: 20px;
+            overflow-y: auto; box-shadow: var(--glass-shadow);
+            max-width: 500px; display: flex; flex-direction: column;
+            z-index: 10; min-width: 350px; position: relative;
         }
-
-        .btn-main:hover {
-            background: #1a252f;
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        .instructions-container {
+            position: sticky; top: 0; z-index: 100; background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+            border-radius: 12px; margin: -20px -20px 20px -20px;
+            padding: 15px 20px; box-shadow: var(--glass-shadow);
         }
-
-        .btn-main:hover::before {
-            left: 100%;
+        .instructions {
+            background: rgba(238, 247, 255, 0.7); border-left: 4px solid var(--accent-blue);
+            padding: 12px; border-radius: 0 4px 4px 0; font-size: 13px; color: var(--text-primary);
         }
-
-        .btn-main:active {
-            transform: scale(0.97);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        .instructions h3 { font-weight: 600; margin-bottom: 8px; color: var(--secondary-color); display: flex; align-items: center; gap: 8px; }
+        .instructions ul { padding-left: 20px; }
+        .instructions li { margin-bottom: 5px; line-height: 1.4; }
+        .sidebar-header {
+            margin-bottom: 20px; padding-bottom: 15px;
+            border-bottom: 1px solid var(--glass-border);
+            position: sticky; top: 0; background: var(--glass-bg); z-index: 100;
         }
-
-        .app-title {
-            font-size: 50px;
-            font-weight: 800;
-            color: #2c3e50;
-            letter-spacing: 1px;
-            margin-bottom: 20px;
-            position: relative;
-            z-index: 20;
+        h1 { font-size: 20px; color: var(--secondary-color); margin-bottom: 5px; font-weight: 600; }
+        .subtitle { color: var(--text-muted); font-size: 12px; font-weight: 500; }
+        .api-status {
+            display: flex; align-items: center; font-size: 11px;
+            color: var(--text-muted); margin-top: 12px; flex-wrap: wrap;
+            gap: 8px; background: rgba(0, 0, 0, 0.03); padding: 8px 12px; border-radius: 8px;
         }
-
-        .app-subtitle {
-            position: relative;
-            left: -8%;
-            transform: translateX(-50%);
-            font-size: 20px;
-            color: #2c3e50;
-            margin-top: 15px;
-            font-weight: 600;
-            z-index: 10;
-            opacity: 0.8;
-            white-space: nowrap;
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+        .status-good { background-color: var(--accent-green); }
+        .status-warning { background-color: var(--accent-orange); }
+        .status-error { background-color: #e74c3c; }
+        .card {
+            background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            padding: 20px; margin-bottom: 20px; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative; overflow: hidden;
         }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1); }
+        .card-title { display: flex; align-items: center; margin-bottom: 15px; color: var(--text-primary); font-weight: 600; font-size: 18px; }
+        .card-title .icon { margin-right: 10px; font-size: 20px; }
+        .data-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.05); transition: all 0.3s ease; }
+        .data-row:hover { background: rgba(0, 0, 0, 0.02); padding-left: 10px; }
+        .data-row:last-child { border-bottom: none; }
+        .data-label { color: var(--text-muted); font-weight: 500; }
+        .data-value { font-weight: 600; color: var(--text-primary); }
+        .safety-index { padding: 18px; border-radius: 10px; margin-bottom: 15px; position: relative; overflow: hidden; }
+        .safety-index-title { font-size: 13px; opacity: 0.8; margin-bottom: 5px; position: relative; z-index: 1; }
+        .safety-index-value { font-size: 40px; font-weight: 800; position: relative; z-index: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .safety-index-label { font-size: 12px; opacity: 0.9; margin-top: 5px; position: relative; z-index: 1; }
+        .risk-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .risk-item {
+            background: #fafbfc; padding: 15px; border-radius: 10px;
+            border-left: 4px solid var(--glass-border);
+            transition: all 0.3s ease; position: relative; overflow: hidden;
         }
-
-        .content > * {
-            animation: fadeIn 0.5s ease forwards;
+        .risk-item:hover { transform: translateX(3px); background: #f8f9fa; }
+        .risk-item.noise { border-left-color: var(--noise-color); }
+        .risk-item.crowd { border-left-color: var(--crowd-color); }
+        .risk-item.light { border-left-color: var(--light-color); }
+        .risk-item.time { border-left-color: var(--time-color); }
+        .risk-item.day { border-left-color: var(--day-color); }
+        .risk-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .risk-item-title { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+        .risk-item-icon { font-size: 18px; opacity: 0.7; }
+        .risk-indicator { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+        .risk-bar { flex: 1; height: 8px; background: rgba(0, 0, 0, 0.05); border-radius: 4px; overflow: hidden; position: relative; }
+        .risk-fill { height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(0.25, 0.8, 0.25, 1), background 0.5s ease; position: relative; overflow: hidden; }
+        .risk-low { background: var(--accent-green); box-shadow: 0 2px 8px rgba(39, 174, 96, 0.2); }
+        .risk-medium { background: var(--accent-orange); box-shadow: 0 2px 8px rgba(230, 126, 34, 0.2); }
+        .risk-high { background: #e74c3c; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2); }
+        .risk-value { min-width: 50px; text-align: right; font-weight: 600; font-size: 14px; color: var(--text-primary); transition: all 0.3s ease; }
+        .traffic-low { background: #d4edda; color: #155724; padding: 3px 8px; border-radius: 15px; font-weight: 600; font-size: 13px; display: inline-block; }
+        .traffic-medium { background: #fff3cd; color: #856404; padding: 3px 8px; border-radius: 15px; font-weight: 600; font-size: 13px; display: inline-block; }
+        .traffic-high { background: #f8d7da; color: #721c24; padding: 3px 8px; border-radius: 15px; font-weight: 600; font-size: 13px; display: inline-block; }
+        .loader { text-align: center; padding: 15px; color: var(--text-muted); font-style: italic; display: none; background: rgba(0, 0, 0, 0.02); border-radius: 8px; margin-bottom: 15px; }
+        .loader.active { display: block; }
+        .loader::before { content: '🔄'; display: inline-block; animation: spin 1.2s linear infinite; margin-right: 8px; }
+        .btn-save { padding: 8px 16px; background: var(--accent-blue); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 12px; transition: all 0.3s ease; width: 100%; }
+        .btn-save:hover { background: #2980b9; transform: translateY(-1px); }
+        .btn-refresh { padding: 5px 10px; background: var(--accent-purple); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin-left: 8px; transition: all 0.2s ease; }
+        .btn-refresh:hover { background: #8e44ad; transform: scale(1.05); }
+        footer { margin-top: auto; padding-top: 15px; border-top: 1px solid var(--glass-border); font-size: 11px; color: var(--text-muted); text-align: center; }
+        .demo-mode-badge {
+            background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px;
+            font-size: 10px; font-weight: bold; margin-left: auto; border: 1px solid #ffeeba;
         }
-
-        .app-title {
-            animation-delay: 0.1s;
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a1a1a1; }
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            #map { flex: 1; height: 50vh; min-height: 300px; }
+            #sidebar { flex: 1; height: 50vh; max-width: 100%; min-width: 0; }
+            .safety-index-value { font-size: 32px; }
         }
-
-        .btn-main {
-            animation-delay: 0.3s;
-        }
-
-        .app-subtitle {
-            animation-delay: 0.4s;
-        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div id="background-map"></div>
-    <div class="overlay"></div>
-
-    <div class="content">
-        <h1 class="app-title">UrbanBlind</h1>
-        <button class="btn-main" onclick="goToApp()">Оценить риски</button>
-        <div class="app-subtitle">Ваша безопасность — наш приоритет в каждом маршруте.</div>
+    <div id="ub-logo">UrbanBlind</div>
+    <div id="map">
+        <div id="map-error">
+            <h2>🗺️ Карта не загрузилась</h2>
+            <p>Возможно, проблема с интернетом.</p>
+            <p><strong>Координаты центра Казани:</strong><br>55.7961, 49.1064</p>
+            <button onclick="location.reload()">🔄 Обновить страницу</button>
+        </div>
+    </div>
+    <div id="sidebar">
+        <div class="instructions-container">
+            <div class="instructions">
+                <h3>Инструкция по использованию</h3>
+                <ul>
+                    <li>🎯 <strong>Перетащите маркер</strong> — данные обновятся автоматически</li>
+                    <li>🖱️ <strong>Клик по карте</strong> — мгновенный переход к точке</li>
+                    <li>📊 <strong>Факторы риска</strong> — шум, плотность людей, освещенность</li>
+                    <li>🌤️ <strong>Погода</strong> — реальные данные</li>
+                    <li>🚦 <strong>Пробки</strong> — данные Яндекс.Карт</li>
+                </ul>
+            </div>
+        </div>
+        <div class="sidebar-header">
+            <h1>UrbanBlind</h1>
+            <div class="subtitle">Факторы риска • Безопасность • Аналитика</div>
+            <div class="api-status">
+                <span class="status-dot status-good" id="server-dot"></span>
+                <span id="server-text">Подключение...</span>
+                <button id="btn-force-refresh" class="btn-refresh" title="Принудительно обновить">🔄</button>
+            </div>
+        </div>
+        <div id="loader" class="loader">Загрузка данных и расчёт факторов риска...</div>
+        <div id="content">
+            <div class="card">
+                <div class="card-title"><span class="icon">🛡️</span>Индекс безопасности</div>
+                <div class="safety-index" id="safety-index-card">
+                    <div class="safety-index-title">Общий уровень безопасности</div>
+                    <div class="safety-index-value" id="safety-index-value">--</div>
+                    <div class="safety-index-label" id="safety-index-label">Переместите маркер для анализа</div>
+                </div>
+                <div class="location-info" id="coords-display">Координаты: 55.7961, 49.1064</div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="icon">⚠️</span>Факторы риска</div>
+                <div class="risk-grid">
+                    <div class="risk-item noise">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title">🔊 Шум окружающей среды</span>
+                            <span class="risk-item-icon">📢</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="noise-bar" style="width: 0%"></div></div>
+                            <span class="risk-value" id="noise-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="noise-desc">Данные загружаются...</div>
+                    </div>
+                    <div class="risk-item crowd">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title">👥 Плотность людей</span>
+                            <span class="risk-item-icon">🚶</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="crowd-bar" style="width: 0%"></div></div>
+                            <span class="risk-value" id="crowd-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="crowd-desc">Данные загружаются...</div>
+                    </div>
+                    <div class="risk-item light">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title">💡 Освещенность</span>
+                            <span class="risk-item-icon">🌙</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="light-bar" style="width: 0%"></div></div>
+                            <span class="risk-value" id="light-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="light-desc">Данные загружаются...</div>
+                    </div>
+                    <div class="risk-item time">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title">🕐 Время суток</span>
+                            <span class="risk-item-icon">⏰</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="time-bar" style="width: 0%"></div></div>
+                            <span class="risk-value" id="time-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="time-desc">Данные загружаются...</div>
+                    </div>
+                    <div class="risk-item day">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title">📅 День недели</span>
+                            <span class="risk-item-icon">📆</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="day-bar" style="width: 0%"></div></div>
+                            <span class="risk-value" id="day-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="day-desc">Данные загружаются...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="icon">🌤️</span>Погода</div>
+                <div class="data-row"><span class="data-label">Температура:</span><span class="data-value" id="w-temp">—</span></div>
+                <div class="data-row"><span class="data-label">Состояние:</span><span class="data-value" id="w-cond">—</span></div>
+                <div class="data-row"><span class="data-label">Ветер:</span><span class="data-value" id="w-wind">—</span></div>
+                <div class="data-row"><span class="data-label">Влажность:</span><span class="data-value" id="w-hum">—</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="icon">🚗</span>Пробки</div>
+                <div class="data-row"><span class="data-label">Уровень:</span><span class="data-value" id="t-level">—</span></div>
+                <div class="data-row"><span class="data-label">Статус:</span><span class="data-value" id="t-status">—</span></div>
+            </div>
+        </div>
+        <footer>
+            <p>UrbanBlind © 2026 | Yandex Maps • OpenStreetMap • Open-Meteo • TomTom</p>
+            <p style="font-size:10px;margin-top:5px;color:var(--text-muted)">Хакатон «Умный город» — Анализ факторов риска</p>
+        </footer>
     </div>
 
-    <script src="https://api-maps.yandex.ru/2.1/?apikey=3b1b6e6f-7c4a-4e5d-9f2a-8c3d1e0f4a5b&lang=ru_RU" type="text/javascript"></script>
-
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=c2763cd1-5a14-4131-842c-2bbd60932c52&lang=ru_RU" type="text/javascript"></script>
     <script>
-        ymaps.ready(initBackgroundMap);
+        // --- НАСТРОЙКИ ---
+        const CONFIG = {
+            throttleMs: 600,
+            minDragDistance: 0.001,
+            defaultCoords: [55.7961, 49.1064],
+            debugMode: false,
+            overpassUrl: 'https://overpass-api.de/api/interpreter',
+            openMeteoUrl: 'https://api.open-meteo.com/v1/forecast',
+            sunriseUrl: 'https://api.sunrise-sunset.org/json',
+            overpassTimeout: 25,
+            cacheDuration: 300000,
+            // CORS Proxy для вызовов API, требующих ключ
+            corsProxy: 'https://api.allorigins.win/raw?url=', // Пример прокси
+            // API ключи (теперь они отправляются через прокси - это потенциально небезопасно!)
+            meersensApiKey: 'IdJ4EJLPIJ4FgwpfGIZ9Udv3HsgrO9il', // Новый ключ из .env
+            meersensBaseUrl: 'https://api.meersens.com/environment/public/noise/v1/current', // Обновлённый URL
+            tomTomApiKey: '1MTIUMcYPeMNMWPEUjXbKvJvYqYMwppa', // Новый ключ из .env
+            tomTomBaseUrl: 'https://api.tomtom.com/traffic/services/4/flow/current/absolute/10/json' // Обновлённый URL
+        };
 
-        function initBackgroundMap() {
+        // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
+        let map, placemark;
+        let currentCoords = [...CONFIG.defaultCoords];
+        let lastRequestTime = 0;
+        let lastRequestCoords = null;
+        let isDragging = false;
+        let pendingRequest = null;
+        let mapInitialized = false;
+        let apiCache = new Map();
+        let demoMode = false; // Сбросим, если прокси сработают
+
+        // --- УТИЛИТЫ ---
+        function throttle(func, limitMs) {
+            return function(...args) {
+                const now = Date.now();
+                const coords = args[0];
+                if (lastRequestCoords) {
+                    const dist = Math.hypot(coords[0] - lastRequestCoords[0], coords[1] - lastRequestCoords[1]);
+                    if (dist < CONFIG.minDragDistance && now - lastRequestTime < limitMs * 2) {
+                        return;
+                    }
+                }
+                if (now - lastRequestTime >= limitMs) {
+                    lastRequestTime = now;
+                    lastRequestCoords = [...coords];
+                    func.apply(this, args);
+                } else {
+                    if (pendingRequest) clearTimeout(pendingRequest);
+                    pendingRequest = setTimeout(() => {
+                        lastRequestTime = Date.now();
+                        lastRequestCoords = [...coords];
+                        func.apply(this, args);
+                        pendingRequest = null;
+                    }, limitMs - (now - lastRequestTime));
+                }
+            };
+        }
+
+        function formatCoord(val) { return val.toFixed(4); }
+
+        function getCachedData(key) {
+            const cached = apiCache.get(key);
+            if (cached && Date.now() - cached.time < CONFIG.cacheDuration) {
+                return cached.data;
+            }
+            return null;
+        }
+
+        function setCachedData(key, data) {
+            apiCache.set(key, { data, time: Date.now() });
+        }
+
+        // --- ПОГОДА (Open-Meteo) - Работает напрямую ---
+        async function getWeatherFromOpenMeteo(lat, lon) {
+            const cacheKey = `weather:${lat.toFixed(2)},${lon.toFixed(2)}`;
+            const cached = getCachedData(cacheKey);
+            if (cached) {
+                if (CONFIG.debugMode) console.log("Weather cache hit:", cacheKey);
+                return cached;
+            }
             try {
-                const backgroundMap = new ymaps.Map('background-map', {
-                    center: [55.7961, 49.1064],
+                const url = `${CONFIG.openMeteoUrl}?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relative_humidity_2m&timezone=auto`;
+                if (CONFIG.debugMode) console.log("Fetching weather from:", url);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (!data.current_weather) {
+                    throw new Error('No current_weather data received');
+                }
+
+                let humidity = 'N/A';
+                if (data.hourly?.relative_humidity_2m && data.hourly.time) {
+                    const now = new Date();
+                    const currentTimeISO = now.toISOString().split(':')[0] + ':00';
+                    const index = data.hourly.time.findIndex(time => time.startsWith(currentTimeISO));
+                    humidity = index !== -1 ? data.hourly.relative_humidity_2m[index] : data.hourly.relative_humidity_2m[0];
+                }
+
+                const weather = {
+                    temp: data.current_weather.temperature ?? 'N/A',
+                    wind: `${data.current_weather.windspeed ?? 'N/A'} km/h`,
+                    wind_direction: data.current_weather.winddirection,
+                    humidity: humidity,
+                    condition: getWeatherCondition(data.current_weather.weathercode)
+                };
+
+                if (CONFIG.debugMode) console.log("Weather fetched:", weather);
+                setCachedData(cacheKey, weather);
+                return weather;
+            } catch (error) {
+                console.error("Open-Meteo Weather API Error:", error);
+                updateStatus('warning', 'Погода: ошибка API');
+                // Fallback
+                return { temp: 'N/A', wind: 'N/A', humidity: 'N/A', condition: 'Ошибка загрузки' };
+            }
+        }
+
+        function getWeatherCondition(code) {
+            const conditions = {
+                0: '☀️ Ясно', 1: '🌤️ Преимущественно ясно', 2: '⛅ Переменная облачность',
+                3: '☁️ Пасмурно', 45: '🌫️ Туман', 48: '❄️ Иней',
+                51: '💧 Морось', 53: '💧 Морось', 55: '💧 Морось',
+                61: '🌧️ Дождь', 63: '🌧️ Дождь', 65: '🌧️ Сильный дождь',
+                71: '❄️ Снег', 73: '❄️ Снег', 75: '❄️ Сильный снег',
+                80: '🌦️ Ливень', 81: '🌦️ Ливень', 82: '🌦️ Сильный ливень',
+                95: '⛈️ Гроза', 96: '⛈️ Гроза с градом', 99: '⛈️ Сильная гроза'
+            };
+            return conditions[code] || `❓ ${code}`;
+        }
+
+        // --- ПРОБКИ (TomTom API через CORS Proxy) ---
+        async function getTrafficFromTomTom(lat, lon) {
+            const cacheKey = `tomtom:${lat.toFixed(4)},${lon.toFixed(4)}`;
+            const cached = getCachedData(cacheKey);
+            if (cached) {
+                if (CONFIG.debugMode) console.log("Traffic cache hit:", cacheKey);
+                return cached;
+            }
+            try {
+                // --- ИСПОЛЬЗУЕМ CORS PROXY ---
+                const originalUrl = `${CONFIG.tomTomBaseUrl}?key=${CONFIG.tomTomApiKey}&point=${lat},${lon}`;
+                const proxiedUrl = CONFIG.corsProxy + encodeURIComponent(originalUrl);
+                if (CONFIG.debugMode) console.log("Fetching traffic via proxy from:", proxiedUrl);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(proxiedUrl, {
+                    headers: { 'Accept': 'application/json' },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status} ${response.statusText} (via proxy)`);
+                }
+
+                const data = await response.json();
+                if (!data.flowResponse || !data.flowResponse.frc) {
+                     throw new Error('Invalid response structure or missing flow data');
+                }
+
+                const segment = data.flowResponse.segments[0];
+                if (!segment) {
+                     throw new Error('No traffic segment found');
+                }
+
+                const currentSpeed = segment.currentSpeed;
+                const freeFlowSpeed = segment.freeFlowSpeed;
+                const travelTimeSeconds = segment.currentTravelTime;
+
+                let trafficLevel = 0;
+                if (freeFlowSpeed > 0) {
+                    const speedRatio = currentSpeed / freeFlowSpeed;
+                    trafficLevel = Math.min(10, Math.round((1 - speedRatio) * 10));
+                }
+
+                let status, speedAvg;
+                if (currentSpeed <= 5) {
+                    status = 'Колонна';
+                    speedAvg = `${currentSpeed.toFixed(1)} км/ч`;
+                } else if (trafficLevel > 7) {
+                    status = 'Высокая загруженность';
+                    speedAvg = `${currentSpeed.toFixed(1)} км/ч`;
+                } else if (trafficLevel > 4) {
+                    status = 'Умеренная загруженность';
+                    speedAvg = `${currentSpeed.toFixed(1)} км/ч`;
+                } else {
+                    status = 'Низкая загруженность';
+                    speedAvg = `${currentSpeed.toFixed(1)} км/ч`;
+                }
+
+                const trafficData = {
+                    level: trafficLevel,
+                    status: status,
+                    speed_avg: speedAvg,
+                    travel_time: `${travelTimeSeconds}s`,
+                    source: 'tomtom_via_proxy'
+                };
+
+                if (CONFIG.debugMode) console.log("Traffic fetched via proxy:", trafficData);
+                setCachedData(cacheKey, trafficData);
+                return trafficData;
+            } catch (error) {
+                console.error("TomTom Traffic API via Proxy Error:", error);
+                updateStatus('warning', 'Пробки: ошибка прокси/API');
+                // Fallback: расчет на основе времени суток
+                const hour = new Date().getHours();
+                let level, status;
+                if ((hour >= 7 && hour < 10) || (hour >= 17 && hour < 20)) {
+                    level = 7;
+                    status = 'Пиковые часы (Fallback)';
+                } else if (hour >= 10 && hour < 17) {
+                    level = 4;
+                    status = 'Дневная активность (Fallback)';
+                } else {
+                    level = 2;
+                    status = 'Ночная тишина (Fallback)';
+                }
+                return {
+                    level: level,
+                    status: status,
+                    speed_avg: 'N/A',
+                    source: 'fallback_proxy_failed'
+                };
+            }
+        }
+
+        // --- ШУМ (Meersens API через CORS Proxy) ---
+        async function getNoiseFromMeersens(lat, lon) {
+            const cacheKey = `meersens:${lat.toFixed(4)},${lon.toFixed(4)}`;
+            const cached = getCachedData(cacheKey);
+            if (cached) {
+                if (CONFIG.debugMode) console.log("Noise cache hit:", cacheKey);
+                return cached;
+            }
+            try {
+                // --- ИСПОЛЬЗУЕМ CORS PROXY ---
+                const originalUrl = `${CONFIG.meersensBaseUrl}?lat=${lat}&lng=${lon}`;
+                const proxiedUrl = CONFIG.corsProxy + encodeURIComponent(originalUrl);
+                if (CONFIG.debugMode) console.log("Fetching noise via proxy from:", proxiedUrl);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+                const response = await fetch(proxiedUrl, {
+                    headers: {
+                        'apikey': CONFIG.meersensApiKey, // Ключ передаётся через прокси
+                        'Accept': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status} ${response.statusText} (via proxy)`);
+                }
+
+                const data = await response.json();
+                let noiseLevel = data?.atmospheric_noise?.value || data?.noise?.value || data?.noise?.Lden || data?.noise?.Lday || data?.noise?.average || null;
+
+                if (noiseLevel !== null && noiseLevel !== undefined) {
+                    const risk = Math.min(100, Math.max(0, ((noiseLevel - 30) / 55) * 100));
+                    const result = {
+                        level: Math.round(noiseLevel),
+                        risk: Math.round(risk),
+                        desc: getNoiseDescription(noiseLevel),
+                        source: 'meersens_via_proxy'
+                    };
+                    if (CONFIG.debugMode) console.log("Noise fetched via proxy:", result);
+                    setCachedData(cacheKey, result);
+                    return result;
+                } else {
+                    throw new Error('No noise data found in response via proxy');
+                }
+            } catch (error) {
+                console.error("Meersens Noise API via Proxy Error:", error);
+                updateStatus('warning', 'Шум: ошибка прокси/API');
+                demoMode = true;
+                // Fallback: расчет через OSM
+                try {
+                    const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["amenity"~"cafe|bar|pub|fast_food|restaurant"](around:200,${lat},${lon});node["highway"~"motorway|trunk|primary|secondary"](around:150,${lat},${lon}););out count;`;
+                    if (CONFIG.debugMode) console.log("Fetching noise fallback from OSM with query:", query);
+
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                    const response = await fetch(CONFIG.overpassUrl, {
+                        method: 'POST',
+                        body: `data=${encodeURIComponent(query)}`,
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
+
+                    const data = await response.json();
+                    const count = data.elements?.length || 0;
+
+                    let level, risk, desc;
+                    if (count > 30) { level = 70; risk = 75; desc = 'Очень шумно (Fallback OSM)'; }
+                    else if (count > 15) { level = 60; risk = 55; desc = 'Шумно (Fallback OSM)'; }
+                    else if (count > 5) { level = 50; risk = 35; desc = 'Умеренный шум (Fallback OSM)'; }
+                    else { level = 40; risk = 20; desc = 'Тихо (Fallback OSM)'; }
+
+                    const result = { level: level, risk: risk, desc: desc, source: 'fallback_osm' };
+                    if (CONFIG.debugMode) console.log("Noise fallback OSM result:", result);
+                    setCachedData(cacheKey, result);
+                    return result;
+                } catch (e) {
+                    console.error("OSM Fallback for Noise Error:", e);
+                    return { level: 50, risk: 40, desc: 'Fallback (Error)', source: 'fallback_error' };
+                }
+            }
+        }
+
+        function getNoiseDescription(db) {
+            if (db < 45) return 'Тихо: спокойная зона';
+            if (db < 55) return 'Умеренный шум: жилая зона';
+            if (db < 65) return 'Заметный шум: оживлённая улица';
+            if (db < 75) return 'Шумно: транспортная магистраль';
+            return 'Очень шумно: зона высокого риска';
+        }
+
+        // --- ПЛОТНОСТЬ ЛЮДЕЙ (OSM) - Работает напрямую ---
+        async function getCrowdFromOSM(lat, lon) {
+            const cacheKey = `crowd:${lat.toFixed(4)},${lon.toFixed(4)}`;
+            const cached = getCachedData(cacheKey);
+            if (cached) {
+                if (CONFIG.debugMode) console.log("Crowd cache hit:", cacheKey);
+                return cached;
+            }
+            try {
+                const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["amenity"~"cafe|restaurant|bar|pub|fast_food|fuel|bank|post_office"](around:200,${lat},${lon});node["shop"](around:200,${lat},${lon});node["highway"="bus_stop"](around:200,${lat},${lon});node["public_transport"="station"](around:200,${lat},${lon}););out count;`;
+                if (CONFIG.debugMode) console.log("Fetching crowd from OSM with query:", query);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(CONFIG.overpassUrl, {
+                    method: 'POST',
+                    body: `data=${encodeURIComponent(query)}`,
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
+
+                const data = await response.json();
+                const count = data.elements?.length || 0;
+
+                let level, risk, desc;
+                if (count > 50) { level = 90; risk = 80; desc = 'Очень высокая плотность (Fallback)'; }
+                else if (count > 30) { level = 75; risk = 65; desc = 'Высокая плотность (Fallback)'; }
+                else if (count > 15) { level = 50; risk = 45; desc = 'Средняя плотность (Fallback)'; }
+                else if (count > 5) { level = 30; risk = 25; desc = 'Низкая плотность (Fallback)'; }
+                else { level = 15; risk = 15; desc = 'Очень низкая плотность (Fallback)'; }
+
+                const result = { level: level, risk: risk, desc: desc, source: 'osm_count' };
+                if (CONFIG.debugMode) console.log("Crowd fetched (OSM count):", result);
+                setCachedData(cacheKey, result);
+                return result;
+            } catch (error) {
+                console.error("OSM Crowd API Error:", error);
+                updateStatus('warning', 'Плотность: ошибка API');
+
+                const count = Math.floor(Math.random() * 40) + 10;
+                let level, risk, desc;
+                if (count > 30) { level = 70; risk = 55; desc = 'Fallback (Random)'; }
+                else if (count > 15) { level = 45; risk = 35; desc = 'Fallback (Random)'; }
+                else { level = 25; risk = 20; desc = 'Fallback (Random)'; }
+
+                const result = { level: level, risk: risk, desc: desc, source: 'fallback_random' };
+                if (CONFIG.debugMode) console.log("Crowd fallback (random) result:", result);
+                setCachedData(cacheKey, result);
+                return result;
+            }
+        }
+
+        // --- ОСВЕЩЕННОСТЬ (OSM + время) - Работает напрямую ---
+        async function getLightFromOSM(lat, lon) {
+            const cacheKey = `light:${lat.toFixed(4)},${lon.toFixed(4)}`;
+            const cached = getCachedData(cacheKey);
+            if (cached) {
+                if (CONFIG.debugMode) console.log("Light cache hit:", cacheKey);
+                return cached;
+            }
+            try {
+                const timeInfo = await getTimeOfDayByLocation(lat, lon);
+                if (timeInfo.isDaytime) {
+                    const result = {
+                        level: 95,
+                        risk: 10,
+                        desc: 'Естественное освещение (день)',
+                        source: 'time_day'
+                    };
+                    if (CONFIG.debugMode) console.log("Light (daytime) result:", result);
+                    setCachedData(cacheKey, result);
+                    return result;
+                }
+
+                const query = `[out:json][timeout:${CONFIG.overpassTimeout}];(node["highway"="street_lamp"](around:200,${lat},${lon});node["man_made"="street_lamp"](around:200,${lat},${lon}););out count;`;
+                if (CONFIG.debugMode) console.log("Fetching light from OSM with query:", query);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(CONFIG.overpassUrl, {
+                    method: 'POST',
+                    body: `data=${encodeURIComponent(query)}`,
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
+
+                const data = await response.json();
+                const count = data.elements?.length || 0;
+
+                let level, risk, desc;
+                if (count > 20) { level = 85; risk = 15; desc = 'Отличное освещение'; }
+                else if (count > 10) { level = 65; risk = 35; desc = 'Хорошее освещение'; }
+                else if (count > 3) { level = 45; risk = 55; desc = 'Среднее освещение'; }
+                else { level = 25; risk = 70; desc = 'Слабое освещение'; }
+
+                const result = { level: level, risk: risk, desc: desc, source: 'osm_lamps' };
+                if (CONFIG.debugMode) console.log("Light (night, OSM lamps) result:", result);
+                setCachedData(cacheKey, result);
+                return result;
+            } catch (error) {
+                console.error("OSM Light API Error:", error);
+                updateStatus('warning', 'Освещение: ошибка API');
+
+                const count = Math.floor(Math.random() * 20) + 5;
+                let level, risk, desc;
+                if (count > 15) { level = 70; risk = 30; desc = 'Fallback (Random)'; }
+                else if (count > 8) { level = 45; risk = 50; desc = 'Fallback (Random)'; }
+                else { level = 25; risk = 70; desc = 'Fallback (Random)'; }
+
+                const result = { level: level, risk: risk, desc: desc, source: 'fallback_random' };
+                if (CONFIG.debugMode) console.log("Light fallback (random) result:", result);
+                setCachedData(cacheKey, result);
+                return result;
+            }
+        }
+
+        // --- ВРЕМЯ СУТОК (Sunrise-Sunset) - Работает напрямую ---
+        async function getSunriseSunset(lat, lon) {
+            const cacheKey = `sunrise:${lat.toFixed(4)},${lon.toFixed(4)}`;
+            const cached = getCachedData(cacheKey);
+            if (cached) {
+                if (CONFIG.debugMode) console.log("Sunrise cache hit:", cacheKey);
+                return cached;
+            }
+            try {
+                const url = `${CONFIG.sunriseUrl}?lat=${lat}&lng=${lon}&date=today&formatted=0`;
+                if (CONFIG.debugMode) console.log("Fetching sunrise/sunset from:", url);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const response = await fetch(url, { signal: controller.signal });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error(`Sunrise API HTTP ${response.status}`);
+
+                const data = await response.json();
+                if (!data.results?.sunrise) throw new Error('Invalid response from sunrise API');
+
+                const result = {
+                    sunrise: new Date(data.results.sunrise),
+                    sunset: new Date(data.results.sunset)
+                };
+
+                if (CONFIG.debugMode) console.log("Sunrise/sunset fetched:", result);
+                setCachedData(cacheKey, result);
+                return result;
+            } catch (error) {
+                console.error("Sunrise/Sunset API Error:", error);
+                return null;
+            }
+        }
+
+        async function getTimeOfDayByLocation(lat, lon) {
+            const now = new Date();
+            const sunData = await getSunriseSunset(lat, lon);
+            const hour = now.getHours();
+
+            if (!sunData) {
+                const isDaytime = hour >= 6 && hour < 22;
+                let timeOfDay = 'Ночь';
+                if (hour >= 5 && hour < 12) timeOfDay = 'Утро';
+                else if (hour >= 12 && hour < 18) timeOfDay = 'День';
+                else if (hour >= 18 && hour < 22) timeOfDay = 'Вечер';
+
+                return {
+                    timeOfDay: timeOfDay,
+                    isDaytime: isDaytime,
+                    description: 'Приблизительное время'
+                };
+            }
+
+            const isDaytime = now >= sunData.sunrise && now < sunData.sunset;
+
+            let timeOfDay, description;
+            if (now < sunData.sunrise) {
+                timeOfDay = 'Ночь';
+                description = 'Темно, ограниченная видимость';
+            } else if (now < new Date(sunData.sunrise.getTime() + 2 * 60 * 60 * 1000)) {
+                timeOfDay = 'Утро';
+                description = 'Активное движение';
+            } else if (now < sunData.sunset) {
+                timeOfDay = 'День';
+                description = 'Высокая активность';
+            } else if (now < new Date(sunData.sunset.getTime() + 1 * 60 * 60 * 1000)) {
+                timeOfDay = 'Вечер';
+                description = 'Активность снижается';
+            } else {
+                timeOfDay = 'Ночь';
+                description = 'Темно, ограниченная видимость';
+            }
+
+            return { timeOfDay, isDaytime, description };
+        }
+
+        // --- РАСЧЁТ РИСКОВ ---
+        async function calculateRiskFactors(coords) {
+            const [lat, lon] = coords;
+            const now = new Date();
+            const day = now.getDay();
+            const timeInfo = await getTimeOfDayByLocation(lat, lon);
+
+            let timeRisk;
+            if (timeInfo.timeOfDay === 'Ночь') timeRisk = 75;
+            else if (timeInfo.timeOfDay === 'Вечер') timeRisk = 60;
+            else if (timeInfo.timeOfDay === 'Утро') timeRisk = 30;
+            else timeRisk = 40;
+
+            const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+            const dayName = dayNames[day];
+            let dayRisk, dayDesc;
+            if (day === 0 || day === 6) {
+                dayRisk = 35;
+                dayDesc = 'Выходной день';
+            } else if (day === 5) {
+                dayRisk = 70;
+                dayDesc = 'Пятница (высокая активность)';
+            } else {
+                dayRisk = 55;
+                dayDesc = 'Будний день';
+            }
+
+            const [noiseData, crowdData, lightData, weatherData, trafficData] = await Promise.allSettled([
+                getNoiseFromMeersens(lat, lon),      // Теперь через прокси
+                getCrowdFromOSM(lat, lon),           // Напрямую
+                getLightFromOSM(lat, lon),           // Напрямую
+                getWeatherFromOpenMeteo(lat, lon),   // Напрямую
+                getTrafficFromTomTom(lat, lon)       // Теперь через прокси
+            ]);
+
+            const noise = noiseData.status === 'fulfilled' ? noiseData.value : {
+                level: 45,
+                risk: 30,
+                desc: 'Ошибка получения данных (Fallback)',
+                source: 'fallback_error'
+            };
+            const crowd = crowdData.status === 'fulfilled' ? crowdData.value : {
+                level: 25,
+                risk: 20,
+                desc: 'Ошибка получения данных (Fallback)',
+                source: 'fallback_error'
+            };
+            const light = lightData.status === 'fulfilled' ? lightData.value : {
+                level: 25,
+                risk: 70,
+                desc: 'Ошибка получения данных (Fallback)',
+                source: 'fallback_error'
+            };
+            const weather = weatherData.status === 'fulfilled' ? weatherData.value : {
+                temp: 'N/A',
+                condition: 'Ошибка получения данных',
+                wind: 'N/A',
+                humidity: 'N/A'
+            };
+            const traffic = trafficData.status === 'fulfilled' ? trafficData.value : {
+                level: 5,
+                status: 'Ошибка получения данных (Fallback)',
+                speed_avg: 'N/A',
+                source: 'fallback_error'
+            };
+
+            const trafficRisk = traffic.level * 10;
+            const avgRisk = (noise.risk + crowd.risk + light.risk + timeRisk + dayRisk + trafficRisk) / 6;
+            const safetyIndex = Math.round(100 - avgRisk);
+
+            const result = {
+                noise, crowd, light,
+                time: {
+                    value: timeInfo.timeOfDay,
+                    risk: timeRisk,
+                    desc: timeInfo.description
+                },
+                day: {
+                    value: dayNames[day],
+                    risk: dayRisk,
+                    desc: dayDesc
+                },
+                traffic, weather, safetyIndex,
+                timestamp: new Date().toLocaleString('ru-RU')
+            };
+
+            if (CONFIG.debugMode) console.log("Calculated Risks:", result);
+            return result;
+        }
+
+        // --- UI ФУНКЦИИ ---
+        function getRiskClass(risk) {
+            if (risk < 40) return 'risk-low';
+            if (risk < 70) return 'risk-medium';
+            return 'risk-high';
+        }
+
+        function getSafetyColor(index) {
+            if (index >= 70) return '#27ae60'; // Green
+            if (index >= 40) return '#f39c12'; // Orange
+            return '#e74c3c'; // Red
+        }
+
+        function getSafetyLabel(index) {
+            if (index >= 80) return '🟢 Очень безопасно';
+            if (index >= 60) return '🟡 Безопасно';
+            if (index >= 40) return '🟠 Умеренный риск';
+            if (index >= 20) return '🔴 Повышенный риск';
+            return '⚫ Высокий риск';
+        }
+
+        // --- ИНИЦИАЛИЗАЦИЯ КАРТЫ ---
+        ymaps.ready(init);
+
+        function init() {
+            try {
+                map = new ymaps.Map('map', {
+                    center: CONFIG.defaultCoords,
                     zoom: 13,
-                    controls: []
+                    controls: ['zoomControl', 'fullscreenControl', 'geolocationControl']
                 });
 
                 try {
                     const trafficLayer = new ymaps.layer.TrafficLayer({
                         trafficProvider: 'yandex#actual',
-                        state: {
-                            quality: 0,
-                            mode: 'default'
-                        }
+                        showInScaleDependentMode: false
                     });
-                    trafficLayer.setMap(backgroundMap);
-                } catch(e) {
-                    console.warn(e);
-                }
+                    trafficLayer.setMap(map);
+                } catch(e) { console.warn("Yandex Traffic layer unavailable:", e); }
 
-                backgroundMap.behaviors.disable(['drag', 'scrollZoom', 'dblClickZoom', 'rightMouseButtonMagnifier', 'multiTouch']);
-                document.getElementById('background-map').style.filter = 'blur(12px)';
+                createPlacemark(CONFIG.defaultCoords);
 
-                setTimeout(() => {
-                    document.querySelector('.overlay').style.opacity = '0.6';
-                }, 500);
+                mapInitialized = true;
+                map.events.add('click', function(e) {
+                    const coords = e.get('coords');
+                    movePlacemark(coords, true);
+                });
 
+                requestWeatherData(CONFIG.defaultCoords, true);
+
+                document.getElementById('btn-force-refresh').addEventListener('click', forceRefresh);
             } catch (error) {
-                console.error(error);
-                document.getElementById('background-map').style.display = 'none';
-                document.body.style.background = 'linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%)';
-                document.querySelector('.overlay').style.display = 'none';
+                console.error("Yandex Maps Init Error:", error);
+                showMapError(error);
             }
         }
 
-        function goToApp() {
-            window.location.href = "123.html";
+        function showMapError(error) {
+            document.getElementById('map-error').classList.add('visible');
+            console.error("Map failed to load:", error);
         }
+
+        function createPlacemark(coords) {
+            if (placemark) map.geoObjects.remove(placemark);
+
+            placemark = new ymaps.Placemark(coords, {
+                hintContent: '🎯 Перетащите для анализа рисков',
+                balloonContentHeader: 'Выбранная точка',
+                balloonContentBody: 'Факторы риска обновляются автоматически'
+            }, {
+                preset: 'islands#redStretchyIcon',
+                draggable: true,
+                iconColor: '#e74c3c'
+            });
+
+            placemark.events.add('dragstart', () => { isDragging = true; });
+            placemark.events.add('drag', (e) => {
+                const coords = placemark.geometry.getCoordinates();
+                updateCoordsDisplay(coords);
+                currentCoords = coords;
+                throttledRequest(coords);
+            });
+            placemark.events.add('dragend', () => {
+                isDragging = false;
+                const coords = placemark.geometry.getCoordinates();
+                requestWeatherData(coords, true);
+            });
+
+            map.geoObjects.add(placemark);
+        }
+
+        function movePlacemark(coords, forceUpdate = false) {
+            if (placemark) {
+                placemark.geometry.setCoordinates(coords);
+            } else {
+                createPlacemark(coords);
+                return;
+            }
+            map.panTo(coords, { duration: 250, flying: false });
+            updateCoordsDisplay(coords);
+            currentCoords = coords;
+            if (forceUpdate) {
+                requestWeatherData(coords, true);
+            } else {
+                throttledRequest(coords);
+            }
+        }
+
+        function updateCoordsDisplay(coords) {
+            document.getElementById('coords-display').textContent =
+                `Координаты: ${formatCoord(coords[0])}, ${formatCoord(coords[1])}`;
+        }
+
+        const throttledRequest = throttle(
+            (coords) => requestWeatherData(coords, false),
+            CONFIG.throttleMs
+        );
+
+        // --- ОСНОВНОЙ ЗАПРОС ДАННЫХ ---
+        async function requestWeatherData(coords, force = false) {
+            if (!force && lastRequestCoords &&
+                Math.abs(coords[0] - lastRequestCoords[0]) < 0.0001 &&
+                Math.abs(coords[1] - lastRequestCoords[1]) < 0.0001) {
+                if (CONFIG.debugMode) console.log("Request throttled due to small coordinate change.");
+                return;
+            }
+
+            showLoader(true);
+            updateStatus('loading', 'Загрузка...');
+
+            try {
+                const risks = await calculateRiskFactors(coords);
+                renderData({ risks }, coords);
+                updateStatus('ok', `Данные обновлены (${risks.timestamp})`);
+                if (demoMode) {
+                     updateStatus('warning', `Данные частично из резерва (FALLBACK - прокси не сработали)`); // Уточняем причину demoMode
+                }
+            } catch (err) {
+                console.error("Main request error:", err);
+                updateStatus('error', 'Ошибка загрузки данных');
+            } finally {
+                showLoader(false);
+            }
+        }
+
+        function forceRefresh() {
+            apiCache.clear();
+            demoMode = false; // Сбрасываем флаг при обновлении
+            updateStatus('loading', 'Принудительное обновление...');
+            requestWeatherData(currentCoords, true);
+        }
+
+        function renderData(data, coords) {
+            const w = data?.risks?.weather || {};
+            const risks = data?.risks;
+            const safetyIndex = risks?.safetyIndex || 0;
+
+            const safetyEl = document.getElementById('safety-index-value');
+            const safetyLabel = document.getElementById('safety-index-label');
+            const safetyCard = document.getElementById('safety-index-card');
+            safetyEl.textContent = safetyIndex;
+            safetyLabel.textContent = getSafetyLabel(safetyIndex);
+            const safetyColor = getSafetyColor(safetyIndex);
+            let darkColor = safetyIndex >= 70 ? '#1e8449' : safetyIndex >= 40 ? '#d35400' : '#c0392b';
+            safetyCard.style.background = `linear-gradient(135deg, ${safetyColor} 0%, ${darkColor} 100%)`;
+            safetyCard.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.15)';
+
+            updateRiskItem('noise', risks?.noise?.level, risks?.noise?.risk, risks?.noise?.desc);
+            updateRiskItem('crowd', risks?.crowd?.level, risks?.crowd?.risk, risks?.crowd?.desc);
+            updateRiskItem('light', risks?.light?.level, risks?.light?.risk, risks?.light?.desc);
+            updateRiskItem('time', null, risks?.time?.risk, risks?.time?.desc, risks?.time?.value);
+            updateRiskItem('day', null, risks?.day?.risk, risks?.day?.desc, risks?.day?.value);
+
+            document.getElementById('w-temp').textContent = w.temp != null ? `${w.temp}°C` : '—';
+            document.getElementById('w-cond').textContent = w.condition || '—';
+            document.getElementById('w-wind').textContent = w.wind || '—';
+            document.getElementById('w-hum').textContent = w.humidity != null ? `${w.humidity}%` : '—';
+
+            const t = risks?.traffic || { level: 5, status: 'N/A' };
+            document.getElementById('t-level').textContent = t.level !== undefined ? `${t.level}/10` : '—';
+            document.getElementById('t-status').textContent = t.status || '—';
+        }
+
+        function updateRiskItem(type, level, risk, desc, valueOverride = null) {
+            const bar = document.getElementById(`${type}-bar`);
+            const value = document.getElementById(`${type}-value`);
+            const description = document.getElementById(`${type}-desc`);
+
+            if (!bar || !value) return;
+
+            const riskClass = getRiskClass(risk);
+            bar.className = `risk-fill ${riskClass}`;
+            bar.style.width = '0%';
+            setTimeout(() => { bar.style.width = `${risk}%`; }, 50);
+
+            if (valueOverride !== null) {
+                value.textContent = valueOverride;
+            } else if (level !== null && level !== undefined) {
+                value.textContent = typeof level === 'number' ? `${level}` : `${risk}%`;
+            } else {
+                value.textContent = `${risk}%`;
+            }
+
+            if (description) description.textContent = desc;
+        }
+
+        function showLoader(show) {
+            const loader = document.getElementById('loader');
+            const content = document.getElementById('content');
+            loader.classList.toggle('active', show);
+            content.style.opacity = show ? '0.7' : '1';
+            content.style.pointerEvents = show ? 'none' : 'auto';
+        }
+
+        function updateStatus(state, text = '') {
+            const dot = document.getElementById('server-dot');
+            const txt = document.getElementById('server-text');
+            dot.className = 'status-dot ' + (state === 'ok' ? 'status-good' :
+                                             state === 'error' ? 'status-error' :
+                                             state === 'loading' ? 'status-warning' : 'status-warning');
+            txt.textContent = text || (state === 'ok' ? 'Онлайн' :
+                               state === 'error' ? 'Ошибка' : 'Загрузка...');
+        }
+
+        setTimeout(() => {
+            if (!mapInitialized) {
+                showMapError(new Error('Yandex Maps failed to initialize within 5 seconds.'));
+                updateStatus('error', 'Карта: таймаут инициализации');
+            }
+        }, 5000);
+
     </script>
 </body>
 </html>
-
