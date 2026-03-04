@@ -1,0 +1,14 @@
+{
+  "name": "urbanblind-modern",
+  "version": "1.0.0",
+  "description": "Modernized UrbanBlind project with modules, PWA, accessibility",
+  "scripts": {
+    "test": "node js/tests/run-tests.js",
+    "start": "http-server -p 8000",
+    "build": "rollup -c"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "http-server": "^14.1.1"
+  }
+}

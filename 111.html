@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UrbanBlind - Анализ рисков и безопасности</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            margin: 0;
+            padding: 0;
+        }
+
+        #background-map {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.7);
+            z-index: -1;
+        }
+
+        .content {
+            text-align: center;
+            padding: 20px;
+            z-index: 10;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .btn-main {
+            padding: 22px 45px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 26px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-main::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: all 0.6s;
+        }
+
+        .btn-main:hover {
+            background: #1a252f;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-main:hover::before {
+            left: 100%;
+        }
+
+        .btn-main:active {
+            transform: scale(0.97);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .app-title {
+            font-size: 50px;
+            font-weight: 800;
+            color: #2c3e50;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 20;
+        }
+
+        .app-subtitle {
+            position: relative;
+            left: -8%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            color: #2c3e50;
+            margin-top: 15px;
+            font-weight: 600;
+            z-index: 10;
+            opacity: 0.8;
+            white-space: nowrap;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .content > * {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .app-title {
+            animation-delay: 0.1s;
+        }
+
+        .btn-main {
+            animation-delay: 0.3s;
+        }
+
+        .app-subtitle {
+            animation-delay: 0.4s;
+        }
+    </style>
+</head>
+<body>
+    <div id="background-map"></div>
+    <div class="overlay"></div>
+
+    <div class="content">
+        <h1 class="app-title">UrbanBlind</h1>
+        <button class="btn-main" onclick="goToApp()">Оценить риски</button>
+        <div class="app-subtitle">Ваша безопасность — наш приоритет в каждом маршруте.</div>
+    </div>
+
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=3b1b6e6f-7c4a-4e5d-9f2a-8c3d1e0f4a5b&lang=ru_RU" type="text/javascript"></script>
+
+    <script>
+        ymaps.ready(initBackgroundMap);
+
+        function initBackgroundMap() {
+            try {
+                const backgroundMap = new ymaps.Map('background-map', {
+                    center: [55.7961, 49.1064],
+                    zoom: 13,
+                    controls: []
+                });
+
+                try {
+                    const trafficLayer = new ymaps.layer.TrafficLayer({
+                        trafficProvider: 'yandex#actual',
+                        state: {
+                            quality: 0,
+                            mode: 'default'
+                        }
+                    });
+                    trafficLayer.setMap(backgroundMap);
+                } catch(e) {
+                    console.warn(e);
+                }
+
+                backgroundMap.behaviors.disable(['drag', 'scrollZoom', 'dblClickZoom', 'rightMouseButtonMagnifier', 'multiTouch']);
+                document.getElementById('background-map').style.filter = 'blur(12px)';
+
+                setTimeout(() => {
+                    document.querySelector('.overlay').style.opacity = '0.6';
+                }, 500);
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('background-map').style.display = 'none';
+                document.body.style.background = 'linear-gradient(135deg, #f5f7fa 0%, #e4e7eb 100%)';
+                document.querySelector('.overlay').style.display = 'none';
+            }
+        }
+
+        function goToApp() {
+            window.location.href = "app.html";
+            window.location.href = ".html";
+        }
+    </script>
+</body>
+</html>

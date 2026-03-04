@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#34495e">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/styles.css">
+    <title>UrbanBlind - Анализ рисков и безопасности</title>
+    <link rel="preconnect" href="https://api-maps.yandex.ru">
+    <link rel="preconnect" href="https://overpass-api.de">
+</head>
+<body>
+    <div id="ub-logo" aria-label="UrbanBlind - Анализ рисков и безопасности">UrbanBlind</div>
+    <div id="map" role="region" aria-label="Карта города"></div>
+    <div id="map-error" role="alert" aria-live="polite">
+        <h2>🗺️ Карта не загрузилась</h2>
+        <p>Возможно, проблема с API ключом Yandex Maps или отсутствием интернета.</p>
+        <p><strong>Координаты центра Казани:</strong><br>55.7961, 49.1064</p>
+        <button onclick="location.reload()" aria-label="Обновить страницу">🔄 Обновить страницу</button>
+    </div>
+    <div id="sidebar" role="main" aria-label="Панель информации">
+        <div class="instructions-container">
+            <div class="instructions">
+                <h3>Инструкция по использованию</h3>
+                <ul>
+                    <li>🎯 <strong>Перетащите маркер</strong> — данные обновятся автоматически</li>
+                    <li>🖱️ <strong>Клик по карте</strong> — мгновенный переход к точке</li>
+                    <li>📊 <strong>Факторы риска</strong> — шум, плотность людей, освещенность</li>
+                    <li>🌤️ <strong>Погода</strong> — реальные данные</li>
+                    <li>🚦 <strong>Пробки</strong> — реальные данные</li>
+                </ul>
+            </div>
+        </div>
+        <div class="sidebar-header">
+            <h1>UrbanBlind</h1>
+            <div class="subtitle">Факторы риска • Безопасность • Аналитика</div>
+            <div class="api-status">
+                <span class="status-dot status-good" id="server-dot" aria-hidden="true"></span>
+                <span id="server-text" aria-live="polite">Подключение...</span>
+                <span id="demo-badge" class="demo-mode-badge" style="display:none;" aria-label="Режим демо">🧪 Демо-режим</span>
+                <button id="btn-force-refresh" class="btn-refresh" title="Принудительно обновить" aria-label="Принудительно обновить данные">🔄</button>
+            </div>
+        </div>
+        <div id="loader" class="loader" role="progressbar" aria-valuetext="Загрузка данных и расчёт факторов риска...">
+            Загрузка данных и расчёт факторов риска...
+        </div>
+        <div id="content">
+            <div class="card">
+                <div class="card-title"><span class="icon">🛡️</span>Индекс безопасности</div>
+                <div class="safety-index" id="safety-index-card" role="region" aria-labelledby="safety-index-value">
+                    <div class="safety-index-title">Общий уровень безопасности</div>
+                    <div class="safety-index-value" id="safety-index-value" aria-live="polite">--</div>
+                    <div class="safety-index-label" id="safety-index-label">Переместите маркер для анализа</div>
+                </div>
+                <div class="location-info" id="coords-display" aria-live="polite">Координаты: 55.7961, 49.1064</div>
+                <button id="btn-save" class="btn-save" style="display:none;" aria-label="Сохранить текущую точку">💾 Сохранить точку</button>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="icon">⚠️</span>Факторы риска</div>
+                <div class="risk-grid">
+                    <div class="risk-item noise" role="group" aria-labelledby="noise-title">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title" id="noise-title">🔊 Шум окружающей среды</span>
+                            <span class="risk-item-icon">📢</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="noise-bar" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
+                            <span class="risk-value" id="noise-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="noise-desc">Данные загружаются...</div>
+                    </div>
+                    <div class="risk-item crowd" role="group" aria-labelledby="crowd-title">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title" id="crowd-title">👥 Плотность людей</span>
+                            <span class="risk-item-icon">🚶</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="crowd-bar" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
+                            <span class="risk-value" id="crowd-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="crowd-desc">Данные загружаются...</div>
+                    </div>
+                    <div class="risk-item light" role="group" aria-labelledby="light-title">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title" id="light-title">💡 Освещенность</span>
+                            <span class="risk-item-icon">🌙</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="light-bar" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
+                            <span class="risk-value" id="light-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="light-desc">Данные загружаются...</div>
+                    </div>
+                    <div class="risk-item time" role="group" aria-labelledby="time-title">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title" id="time-title">🕐 Время суток</span>
+                            <span class="risk-item-icon">⏰</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="time-bar" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
+                            <span class="risk-value" id="time-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="time-desc">Данные загружаются...</div>
+                    </div>
+                    <div class="risk-item day" role="group" aria-labelledby="day-title">
+                        <div class="risk-item-header">
+                            <span class="risk-item-title" id="day-title">📅 День недели</span>
+                            <span class="risk-item-icon">📆</span>
+                        </div>
+                        <div class="risk-indicator">
+                            <div class="risk-bar"><div class="risk-fill risk-low" id="day-bar" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
+                            <span class="risk-value" id="day-value">--</span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:5px" id="day-desc">Данные загружаются...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="icon">🌤️</span>Погода</div>
+                <div class="data-row"><span class="data-label">Температура:</span><span class="data-value" id="w-temp">—</span></div>
+                <div class="data-row"><span class="data-label">Состояние:</span><span class="data-value" id="w-cond">—</span></div>
+                <div class="data-row"><span class="data-label">Ветер:</span><span class="data-value" id="w-wind">—</span></div>
+                <div class="data-row"><span class="data-label">Влажность:</span><span class="data-value" id="w-hum">—</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="icon">🚗</span>Пробки</div>
+                <div class="data-row"><span class="data-label">Уровень:</span><span class="data-value" id="t-level">5/10</span></div>
+                <div class="data-row"><span class="data-label">Скорость:</span><span class="data-value" id="t-speed">25 км/ч</span></div>
+                <div class="data-row"><span class="data-label">Статус:</span><span class="data-value" id="t-status" class="traffic-medium">Умеренная загруженность</span></div>
+            </div>
+        </div>
+        <footer>
+            <p>UrbanBlind © 2026 | Yandex Maps • OpenStreetMap • Open-Meteo • TomTom • Meersens</p>
+            <p style="font-size:10px;margin-top:5px;color:var(--text-muted)">Хакатон «Умный город» — Анализ факторов риска</p>
+        </footer>
+    </div>
+
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=c2763cd1-5a14-4131-842c-2bbd60932c52&lang=ru_RU"></script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
