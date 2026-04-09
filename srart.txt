@@ -1,0 +1,53 @@
+Запускаем докер:
+***В теминале корневой папки прописываем***
+docker-compose up -d
+
+
+Запуск бэкенда:
+***В корне прописываем*** 
+cd backend
+
+***а также это*** 
+pip install -r requirements.txt
+
+***и это***
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+
+Запуск фронтенда:
+***В корне прописываем*** 
+cd frontend
+
+***а также это*** 
+npx next dev -H 0.0.0.0 -p 3000
+
+
+Если хочешь запустить все сразу одной командой, то в корне прописываем:
+***
+start "Backend" cmd /k "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+start "Frontend" cmd /k "cd frontend && npx next dev -H 0.0.0.0 -p 3000"
+***
+
+
+Если хочешь остановить все сразу одной командой, то в корне прописываем:
+***
+taskkill /F /IM cmd.exe
+***
+
+
+Если хочешь остановить докер, то в корне прописываем:
+***
+docker-compose down
+***
+
+Если хочешь запустить все вместе с докером, то в корне прописываем:
+***
+start "Backend" cmd /k "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+start "Frontend" cmd /k "cd frontend && npx next dev -H 0.0.0.0 --p 3000"
+docker-compose up -d
+***
+
+Если хочешь узнать количество строк в коде, то прописываем в корне:
+***
+python count_lines.py
+***
