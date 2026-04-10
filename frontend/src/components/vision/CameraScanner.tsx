@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 
 interface CameraScannerProps {
   onClose?: () => void;
-  userLocation?: [number, number]; 
-  onHazardDetected?: () => void; 
+  userLocation?: [number, number];
+  onHazardDetected?: () => void;
 }
 
 export function CameraScanner({ onClose, userLocation, onHazardDetected }: CameraScannerProps) {
@@ -40,11 +40,11 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
     const image_base64 = canvas.toDataURL('image/jpeg', 0.5);
     const currentLocation = userLocationRef.current;
     const body: Record<string, any> = { image_base64 };
-    
+
     if (currentLocation) {
       body.lon = currentLocation[0];
       body.lat = currentLocation[1];
-    } 
+    }
 
     try {
       const response = await fetch('http://localhost:8000/api/vision/analyze', {
@@ -97,7 +97,7 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
           </div>
           {onClose && (
             <button onClick={onClose} className="text-white/50 hover:text-white/90 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
             </button>
           )}
         </div>
@@ -117,7 +117,7 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center px-4 py-5 gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
             <p className="text-xs text-red-300 text-center leading-relaxed">{errorMessage}</p>
           </div>
         )}
@@ -125,7 +125,7 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
         <div className="px-3 py-2">
           {lastAlert ? (
             <div className="bg-red-500/20 border border-red-400/30 rounded-lg px-2 py-1.5 flex items-start gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-300 mt-0.5 shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-300 mt-0.5 shrink-0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
               <p className="text-xs text-red-300 leading-snug">{lastAlert}</p>
             </div>
           ) : (
@@ -138,7 +138,7 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
         <div className="px-3 pb-3 flex flex-col gap-2">
           {userLocationRef.current ? (
             <p className="text-[10px] text-emerald-400/70 text-center tracking-wide flex items-center justify-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
               Геопривязка активна
             </p>
           ) : (
@@ -159,12 +159,12 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
                   setLastAlert(data.message || 'Сигнал успешно отправлен');
                   if (onHazardDetected) onHazardDetected();
                 }
-              } catch(e) { } finally { setIsSending(false); }
+              } catch (e) { } finally { setIsSending(false); }
             }}
             disabled={isSending}
             className="w-full py-2.5 flex items-center justify-center gap-2 bg-[#1c3044] hover:bg-[#304356] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg border border-white/10 active:scale-95 transition-all"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
             {isSending ? 'Отправка...' : 'Отправить Угрозу'}
           </button>
         </div>

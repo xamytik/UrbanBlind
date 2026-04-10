@@ -9,7 +9,7 @@
 [![PostGIS](https://img.shields.io/badge/PostGIS-PostgreSQL-336791?logo=postgresql)](https://postgis.net/)
 [![Gemini](https://img.shields.io/badge/AI-Google_Gemini_Vision-4285F4?logo=google)](https://deepmind.google/technologies/gemini/)
 
-<img src="./frontend/public/favicon.ico" width="120" alt="UrbanBlind Logo" />
+<img src="https://raw.githubusercontent.com/xamytik/UrbanBlind/main/frontend/public/vercel.svg" width="120" alt="UrbanBlind Logo" />
 
 </div>
 

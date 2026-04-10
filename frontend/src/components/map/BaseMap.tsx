@@ -274,7 +274,7 @@ export function BaseMap() {
     lineWidthScale: 4,
     getLineColor: (d: any) => {
       const risk = d.properties?.current_risk_weight;
-      return risk > 0 ? [220, 50, 50, 255] : [230, 245, 240, 255]; // OPAQUE light mint green (fixes WebGL alpha lag)
+      return risk > 0 ? [220, 50, 50, 255] : [190, 240, 215, 255]; // OPAQUE light emerald (fixes WebGL alpha lag)
     },
     getLineWidth: 1,
     updateTriggers: { getLineColor: [networkData] }
