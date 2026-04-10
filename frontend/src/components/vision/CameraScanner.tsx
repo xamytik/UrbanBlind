@@ -16,6 +16,8 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const userLocationRef = useRef<[number, number] | undefined>(userLocation);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   const [status, setStatus] = useState<'loading' | 'active' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [lastAlert, setLastAlert] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/vision/analyze', {
+      const response = await fetch(`${API_URL}/api/vision/analyze`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
       if (response.ok) {
@@ -150,7 +152,7 @@ export function CameraScanner({ onClose, userLocation, onHazardDetected }: Camer
               setIsSending(true);
               const loc = userLocationRef.current || [49.1088, 55.7963]; // fallback to Kazan
               try {
-                const res = await fetch('http://localhost:8000/api/vision/analyze', {
+                const res = await fetch(`${API_URL}/api/vision/analyze`, {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ image_base64: 'manual_report', lat: loc[1], lon: loc[0], force_hazard: true })
                 });

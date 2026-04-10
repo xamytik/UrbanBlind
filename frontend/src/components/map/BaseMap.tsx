@@ -12,9 +12,11 @@ import { IncidentDashboard } from '../ui/IncidentDashboard';
 let cachedNetworkData: any = null;
 let networkFetchPromise: Promise<any> | null = null;
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export const preloadNetworkData = () => {
   if (!networkFetchPromise) {
-    networkFetchPromise = fetch('http://localhost:8000/api/map/network').then(res => res.json());
+    networkFetchPromise = fetch(`${API_URL}/api/map/network`).then(res => res.json());
     networkFetchPromise.then(data => { cachedNetworkData = data; }).catch(console.error);
   }
 };
@@ -84,7 +86,7 @@ export function BaseMap() {
         return;
       }
       if (forceReload || !networkFetchPromise) {
-        networkFetchPromise = fetch('http://localhost:8000/api/map/network').then(res => res.json());
+        networkFetchPromise = fetch(`${API_URL}/api/map/network`).then(res => res.json());
         networkFetchPromise.then(data => { cachedNetworkData = data; }).catch(console.error);
       }
       const data = await networkFetchPromise;
@@ -395,7 +397,7 @@ export function BaseMap() {
           <ExpandableButton
             onClick={async () => {
               try {
-                await fetch('http://localhost:8000/api/map/reset_risks', { method: 'POST' });
+                await fetch(`${API_URL}/api/map/reset_risks`, { method: 'POST' });
                 handleHazardDetected();
               } catch (e) { console.error(e); }
             }}
