@@ -20,7 +20,6 @@ export default function ClientProtection() {
         (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74)) ||
         (e.ctrlKey && e.keyCode === 85) ||
         (e.metaKey && e.altKey && (e.keyCode === 73 || e.keyCode === 74)) ||
-        (e.metaKey && e.optionKey && (e.keyCode === 73 || e.keyCode === 74)) ||
         (e.metaKey && e.keyCode === 85)
       ) {
         e.preventDefault();
