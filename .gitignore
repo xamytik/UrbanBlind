@@ -53,3 +53,7 @@ desktop.ini
 logs/
 npm-debug.log*
 yarn-debug.log*
+
+# === Rust ===
+rust_backend/target/
+rustup-init.exe

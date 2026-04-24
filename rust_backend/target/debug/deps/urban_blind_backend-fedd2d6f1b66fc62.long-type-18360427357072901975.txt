@@ -1,2 +1,0 @@
-fn({type error}, State<Arc<AppState>>) -> impl std::future::Future<Output = axum::http::Response<axum::body::Body>> {websocket_handler}
-fn({type error}, State<Arc<AppState>>) -> impl std::future::Future<Output = axum::http::Response<axum::body::Body>> {websocket_handler}: Handler<_, _>
