@@ -1,0 +1,33 @@
+[package]
+name = "urban-blind-backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Веб-сервер и асинхронность
+axum = { version = "0.7", features = ["ws", "macros"] }
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Работа с данными и JSON
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# База данных (PostGIS)
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Геометрия и графы
+geo = "0.28"
+geojson = "0.24"
+petgraph = "0.6"
+
+# Логирование и утилиты
+tracing = "0.1"
+tracing-subscriber = "0.3"
+dotenvy = "0.15"
+
+# HTTP и ИИ интеграция
+reqwest = { version = "0.12", features = ["json"] }
+base64 = "0.22"

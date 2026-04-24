@@ -1,0 +1,39 @@
+# Зависимости и пакеты
+node_modules/
+.next/
+dist/
+build/
+out/
+.vercel
+.cache/
+
+# Python (Бэкенд)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.env
+.pytest_cache/
+
+# Git и системные файлы
+.git/
+.svn
+.metadata
+.DS_Store
+Thumbs.db
+*.log
+
+# Лок-файлы (обычно редактируются пакетными менеджерами, а не вручную)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Бинарные файлы и артефакты компиляции (для C++ и пр.)
+*.exe
+*.o
+*.obj
+*.out
+*.app
